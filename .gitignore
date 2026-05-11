@@ -1,0 +1,6 @@
+.python_packages/
+streamlit_out.log
+streamlit_err.log
+__pycache__/
+*.pyc
+admm_ss_sdp/.git_backup/

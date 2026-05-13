@@ -118,60 +118,11 @@ def main() -> None:
     st.caption("A sublevel-set SDP stress test for uploaded clustering results.")
     st.markdown(
         """
-        This app asks whether your uploaded clustering is easy to replace.
-
-        It searches for an alternative clustering that has equal-or-better k-means quality but is as
-        structurally different as possible. If no such alternative is found, the uploaded clustering
-        has stronger stability evidence.
-
-        The method is based on Meila (2018), **"How to tell when a clustering is (approximately)
-        correct using convex relaxations."** This is a verifier, not a ground-truth oracle.
+        This app asks whether another clustering can fit the data just as well while being
+        structurally different from the clustering you uploaded.
 
         """
     )
-    with st.expander("Methodology overview", expanded=True):
-        st.markdown(
-            """
-            The workflow has four steps:
-
-            1. Start with a clustering you already have, usually produced by k-means or another clustering
-               method. This clustering is encoded as `X0`.
-            2. Convert the original data geometry into the centered Gram matrix `G`. The value `<G, X>`
-               is the SDP form of the k-means data-fit score for a clustering matrix `X`.
-            3. Define the sublevel set: all candidate clusterings whose k-means quality is at least as good
-               as the uploaded clustering. In this app that condition is written as `<G, X> >= <G, X0>`.
-            4. Solve a semidefinite program that searches inside that set for the candidate least similar
-               to `X0`. This stress test tries to find a credible alternative clustering that still fits
-               the data well.
-
-            """
-        )
-
-    with st.expander("What problem is this solver checking?", expanded=True):
-        st.markdown(
-            """
-            The uploaded clustering is represented by a matrix `X0`. The solver searches over relaxed
-            clustering matrices `X` and solves:
-
-            ```text
-            minimize    <X0, X>
-
-            subject to  trace(X) = K
-                        X 1 = 1
-                        X >= 0
-                        X is positive semidefinite
-                        <G, X> >= <G, X0>
-            ```
-
-            The constraint `<G, X> >= <G, X0>` means that the candidate `X` must be at least as good as
-            `X0` under the k-means/Gram-matrix score. The objective `<X0, X>` tries to make `X` as
-            different from `X0` as possible. This is a "stress test" for the uploaded clustering.
-
-            Exact clustering is combinatorial, so the app uses an SDP relaxation: it searches over a
-            larger convex set of matrix candidates. A strong certificate from this relaxed problem is
-            meaningful because the relaxed search is allowed to be more flexible than real hard clusterings.
-            """
-        )
 
     with st.expander("Required data format", expanded=True):
         st.markdown(
@@ -190,8 +141,7 @@ def main() -> None:
             `m`, then `X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. Its trace equals the number of
             clusters, so this app infers `K` from `trace(X0)`.
 
-            `G` is computed from the centered data matrix. If the raw data matrix is `Y` with one point
-            per row, first subtract the column-wise mean:
+            `G` is computed from the centered data matrix:
 
             ```python
             Y_centered = Y - Y.mean(axis=0, keepdims=True)
@@ -200,6 +150,45 @@ def main() -> None:
 
             The app checks that `X0` and `G` are square, finite numeric matrices with the same shape,
             and that `trace(X0)` is an integer cluster count.
+            """
+        )
+
+    with st.expander("Methodology overview"):
+        st.markdown(
+            """
+            The method is based on Meila (2018), **"How to tell when a clustering is
+            (approximately) correct using convex relaxations."**
+
+            The workflow is:
+
+            1. Start with an existing clustering, encoded as `X0`.
+            2. Encode the data geometry as the centered Gram matrix `G`.
+            3. Search the sublevel set: candidates with k-means quality at least as good as `X0`.
+            4. Look for the candidate least similar to `X0`.
+
+            If this stress test cannot move far away from `X0`, the uploaded clustering has stronger
+            stability evidence. This is a verifier, not a ground-truth oracle.
+            """
+        )
+
+    with st.expander("Optimization problem"):
+        st.markdown(
+            """
+            The solver searches over relaxed clustering matrices `X` and solves:
+
+            ```text
+            minimize    <X0, X>
+
+            subject to  trace(X) = K
+                        X 1 = 1
+                        X >= 0
+                        X is positive semidefinite
+                        <G, X> >= <G, X0>
+            ```
+
+            The constraint `<G, X> >= <G, X0>` means the candidate has equal-or-better k-means quality.
+            The objective `<X0, X>` tries to find the least similar candidate. Exact clustering is
+            combinatorial, so the app uses a convex SDP relaxation.
             """
         )
 
@@ -306,10 +295,8 @@ def main() -> None:
 
     st.markdown(
         """
-        `Objective - K` near `0` supports stability: the solver could not find a very different
-        equal-or-better clustering. More negative values indicate a more replaceable cluster structure.
-
-        The gauge is a visual aid derived from `Objective - K`; it is not a theorem score or probability.
+        Closer to `0` means stronger stability evidence; more negative means the uploaded clustering
+        is easier to replace. The gauge is a visual aid, not a theorem score or probability.
         """
     )
 

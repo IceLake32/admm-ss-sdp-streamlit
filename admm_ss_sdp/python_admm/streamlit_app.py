@@ -33,6 +33,39 @@ def infer_cluster_count(x0, tol: float = 1e-6) -> int:
     return k
 
 
+def stability_verdict(objective_minus_k: float) -> dict[str, str]:
+    """Return UI-only stability labels from the ADMM primary metric."""
+    if objective_minus_k > -0.05:
+        return {
+            "status": "Certified Stable",
+            "confidence": "High",
+            "color": "green",
+            "bottom_line": (
+                "No substantially different equally-good clustering was found. "
+                "Your uploaded clustering appears structurally robust."
+            ),
+        }
+    if objective_minus_k > -0.30:
+        return {
+            "status": "Moderately Stable",
+            "confidence": "Moderate",
+            "color": "orange",
+            "bottom_line": (
+                "The solver found somewhat different alternatives, but not drastically different ones. "
+                "Your clustering appears reasonably credible, though not uniquely certified."
+            ),
+        }
+    return {
+        "status": "Weak / Potentially Ambiguous",
+        "confidence": "Low",
+        "color": "red",
+        "bottom_line": (
+            "The solver found meaningfully different alternatives with similar quality. "
+            "Multiple plausible cluster structures may exist."
+        ),
+    }
+
+
 def main() -> None:
     st.title("Sublevel-Set SDP Clustering Solver")
     st.markdown(
@@ -182,45 +215,120 @@ def main() -> None:
             st.exception(exc)
             return
 
-    st.subheader("Result")
     objective_minus_k = result.objective - k
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Solver", result.solver)
-    col2.metric("Objective", f"{result.objective:.8g}")
-    col3.metric("Runtime", f"{result.elapsed:.2f} s")
-    st.metric("Objective - K", f"{objective_minus_k:.8g}")
+    if result.solver == "ADMM":
+        verdict = stability_verdict(objective_minus_k)
+    else:
+        verdict = {
+            "status": "No Guarantee",
+            "confidence": "Low",
+            "color": "gray",
+            "bottom_line": (
+                "This CG run is experimental in the Python demo. Treat the result as a diagnostic, "
+                "not as the primary stability certificate."
+            ),
+        }
 
+    st.subheader("Uploaded Clustering Stress-Test Result")
     st.markdown(
-        "\n".join(
-            f"- `{key}`: `{value:.12g}`" for key, value in result.metrics.items()
-        )
+        f"""
+        <div style="border-left: 0.5rem solid {verdict['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
+            <h3 style="margin-top: 0;">{verdict['status']}</h3>
+            <p style="font-size: 1.05rem; margin-bottom: 0;">{verdict['bottom_line']}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.subheader("Result Meaning")
-    meaning_lines = [
-        f"- `K`: inferred from `trace(X0)`, here `K = {k}`.",
-        "- `Objective`: solver objective value. For ADMM this is `<X0, X>`, the overlap between the uploaded clustering and the returned candidate.",
-        "- `Objective - K`: for ADMM this is `<X0, X> - K`. Values near `0` mean the solver could not move far away from the uploaded clustering while keeping equal-or-better k-means quality. More negative values mean it found a more different candidate, so the uploaded clustering is less strongly certified.",
-        "- `Runtime`: wall-clock time spent inside the selected solver.",
-        "- `min_X` or `min_P`: minimum entry of the returned matrix; values slightly below zero can be numerical tolerance error.",
-        "- `trace_X` or `trace_P`: trace of the returned matrix; for ADMM, `trace_X` should be close to `K`.",
-        "- `trace_GX` or `trace_GP`: data-fit score of the returned matrix.",
-        "- `trace_GX0`: data-fit score of the uploaded clustering matrix `X0`; ADMM targets `trace_GX >= trace_GX0`.",
-        "- `trace_X0X` or `trace_X0P`: overlap between `X0` and the returned matrix; for ADMM this is the same quantity as the objective.",
-    ]
-    if result.solver == "ADMM":
-        meaning_lines.extend(
-            [
-                f"- `Tolerance`: fixed at `{ADMM_EPS:g}` for ADMM in this demo.",
-                "- `v`: ADMM multiplier for the sublevel constraint `trace(G X) >= trace(G X0)`.",
-            ]
+    st.subheader("Primary Metrics")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Solver Backend", f"{result.solver} / SDP")
+    col2.metric("K", f"{k}")
+    col3.metric("Objective - K", f"{objective_minus_k:.8g}")
+    col4.metric("Runtime", f"{result.elapsed:.2f} s")
+    st.metric("Confidence Level", verdict["confidence"])
+
+    with st.expander("How to read Objective - K", expanded=True):
+        st.markdown(
+            """
+            `Objective - K` is the primary ADMM stability readout for this demo.
+
+            - Near `0`: the solver could not move far from your clustering while preserving
+              equal-or-better k-means quality. This supports stronger structural stability.
+            - Moderately negative: the solver found somewhat different alternatives. This is a
+              moderate certificate.
+            - Very negative: the solver found substantially different alternatives. The uploaded
+              clustering may not be unique.
+
+            Heuristic UI bands, not theorem thresholds:
+
+            - `Objective - K > -0.05`: Strongly stable
+            - `-0.05 >= Objective - K > -0.30`: Moderately stable
+            - `Objective - K <= -0.30`: Weak / ambiguous
+            """
+        )
+
+    st.subheader("Plain English Interpretation")
+    st.markdown(
+        """
+        This solver searches for an alternative clustering that:
+
+        1. Matches or improves your uploaded clustering's k-means quality.
+        2. Is as structurally different as possible.
+
+        If the search fails to move far away, your clustering is harder to replace. If it succeeds,
+        your clustering may be one of several plausible explanations for the same data.
+        """
+    )
+
+    st.subheader("Recommended Next Steps")
+    if verdict["status"] == "Certified Stable":
+        st.markdown(
+            """
+            - Try nearby values of `K`.
+            - Test sensitivity to outliers.
+            - Compare ADMM with the experimental CG backend on larger examples.
+            """
+        )
+    elif verdict["status"] == "Moderately Stable":
+        st.markdown(
+            """
+            - Inspect boundary or ambiguous points.
+            - Test multiple values of `K`.
+            - Compare results from different clustering initializations.
+            """
         )
     else:
-        meaning_lines.append(f"- `Maximum iterations`: fixed at `{CG_MAX_ITER}` for CG in this demo.")
-    st.markdown("\n".join(meaning_lines))
+        st.markdown(
+            """
+            - Check for overlap, outliers, or weak separation.
+            - Revisit the chosen number of clusters `K`.
+            - Consider whether the data truly has a strong cluster structure.
+            """
+        )
+
+    with st.expander("Advanced Solver Diagnostics"):
+        st.markdown(
+            "\n".join(
+                f"- `{key}`: `{value:.12g}`" for key, value in result.metrics.items()
+            )
+        )
+        if result.solver == "ADMM":
+            st.markdown(f"- `tolerance`: `{ADMM_EPS:g}`")
+        else:
+            st.markdown(f"- `maximum_iterations`: `{CG_MAX_ITER}`")
+        st.caption("These diagnostics are for optimization validity, not the primary user verdict.")
+
+    st.warning(
+        "Important: Weak or No Guarantee does not prove the clustering is incorrect. "
+        "It means this convex stress-test found limited evidence for uniqueness or robustness. "
+        "This tool is a verifier, not a ground-truth oracle."
+    )
+
+    st.markdown("### Are your clusters real, or just one convenient partition?")
 
     st.download_button(
-        "Download result .mat",
+        "Download Full Solver Diagnostics (.mat)",
         data=result_to_mat_bytes(result),
         file_name=f"{result.solver.lower()}_result.mat",
         mime="application/octet-stream",

@@ -90,7 +90,7 @@ def main() -> None:
     with st.expander("Required `.mat` format", expanded=True):
         st.markdown(
             """
-            Upload a MATLAB `.mat` file containing exactly the problem data variables:
+            Upload either a MATLAB `.mat` file or a NumPy `.npz` file containing the problem data:
 
             - `X0`: an `n x n` clustering matrix for the clustering you want to validate.
             - `G`: an `n x n` centered Gram matrix describing the data geometry.
@@ -113,7 +113,7 @@ def main() -> None:
         )
 
     with st.sidebar:
-        uploaded_file = st.file_uploader("Upload MATLAB data", type=["mat"])
+        uploaded_file = st.file_uploader("Upload problem data", type=["mat", "npz"])
         solver = st.selectbox("Solver", ["ADMM", "CG"])
 
         if solver == "ADMM":
@@ -128,14 +128,14 @@ def main() -> None:
         run_clicked = st.button("Run Solver", type="primary", use_container_width=True)
 
     if uploaded_file is None:
-        st.info("Upload a `.mat` file containing variables `X0` and `G`.")
+        st.info("Upload a `.mat` or `.npz` file containing variables `X0` and `G`.")
         return
 
     try:
-        x0, g = load_problem(BytesIO(uploaded_file.getvalue()))
+        x0, g = load_problem(BytesIO(uploaded_file.getvalue()), uploaded_file.name)
         k = infer_cluster_count(x0)
     except Exception as exc:
-        st.error("Invalid `.mat` file format.")
+        st.error("Invalid input file format.")
         st.error(str(exc))
         return
 

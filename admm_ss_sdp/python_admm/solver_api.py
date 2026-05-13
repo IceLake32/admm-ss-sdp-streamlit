@@ -25,18 +25,37 @@ class SolverResult:
     extra_outputs: dict[str, np.ndarray | float]
 
 
-def load_problem(file: str | Path | BinaryIO) -> tuple[np.ndarray, np.ndarray]:
-    """Load X0 and G from a Matlab .mat file."""
-    data = loadmat(file)
+def load_problem(file: str | Path | BinaryIO, filename: str | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Load X0 and G from a supported problem file."""
+    suffix = _problem_suffix(file, filename)
+    if suffix == ".mat":
+        data = loadmat(file)
+    elif suffix == ".npz":
+        data = np.load(file)
+    else:
+        raise ValueError("Unsupported file format. Upload a `.mat` or `.npz` file.")
+
+    return _problem_arrays_from_mapping(data, suffix)
+
+
+def _problem_arrays_from_mapping(data, suffix: str) -> tuple[np.ndarray, np.ndarray]:
     missing = [name for name in ("X0", "G") if name not in data]
     if missing:
         missing_names = ", ".join(missing)
-        raise ValueError(f"Uploaded .mat file must contain variables: X0 and G. Missing: {missing_names}.")
+        raise ValueError(f"Uploaded {suffix} file must contain variables: X0 and G. Missing: {missing_names}.")
 
     x0 = np.asarray(data["X0"], dtype=float)
     g = np.asarray(data["G"], dtype=float)
     _validate_problem_matrices(x0, g)
     return x0, g
+
+
+def _problem_suffix(file: str | Path | BinaryIO, filename: str | None) -> str:
+    if filename:
+        return Path(filename).suffix.lower()
+    if isinstance(file, (str, Path)):
+        return Path(file).suffix.lower()
+    return ".mat"
 
 
 def infer_cluster_count(x0: np.ndarray, tol: float = 1e-6) -> int:

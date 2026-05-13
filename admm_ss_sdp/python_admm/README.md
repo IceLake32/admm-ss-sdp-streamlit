@@ -22,9 +22,9 @@ from it.
 - `validate_cg.py`: Compares Python CG summary metrics against Matlab output.
 - `debug_cg_short.py`: Small diagnostic script for CG eigensolver behavior.
 
-## Input `.mat` Format
+## Input File Format
 
-The Streamlit app expects a MATLAB `.mat` file containing:
+The Streamlit app accepts MATLAB `.mat` files or NumPy `.npz` files containing:
 
 - `X0`: an `n x n` clustering matrix for the clustering being validated.
 - `G`: an `n x n` centered Gram matrix with the same shape as `X0`.

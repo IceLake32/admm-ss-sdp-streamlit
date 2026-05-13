@@ -13,8 +13,10 @@ st.set_page_config(page_title="ADMM SS SDP Solver", layout="wide")
 
 ADMM_EPS = 1e-4
 ADMM_PRINT_INTERVAL = 100
+ADMM_N_LIMIT = 500
 CG_MAX_ITER = 500
 CG_PRINT_INTERVAL = 50
+CG_N_LIMIT = 1000
 
 
 def infer_cluster_count(x0, tol: float = 1e-6) -> int:
@@ -97,12 +99,12 @@ def main() -> None:
 
         if solver == "ADMM":
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
-            n_limit = st.number_input("Maximum n", min_value=50, max_value=1000, value=500, step=50)
+            st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
             st.caption("CG is experimental in Python because iterative eigensolvers can diverge from Matlab.")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
+            st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
             eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
-            n_limit = st.number_input("Maximum n", min_value=50, max_value=2000, value=1000, step=50)
 
         run_clicked = st.button("Run Solver", type="primary", use_container_width=True)
 
@@ -131,6 +133,7 @@ def main() -> None:
         )
     )
 
+    n_limit = ADMM_N_LIMIT if solver == "ADMM" else CG_N_LIMIT
     if n > n_limit:
         st.warning(f"This demo is configured for n <= {n_limit}. Uploaded problem has n = {n}.")
         return

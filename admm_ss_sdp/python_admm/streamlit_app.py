@@ -200,10 +200,10 @@ def main() -> None:
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
-            st.caption("CG is experimental in Python because iterative eigensolvers can diverge from Matlab.")
+            st.caption("CG")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
-            eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
+            # eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
 
         run_clicked = st.button("Run Solver", type="primary", use_container_width=True)
 
@@ -251,7 +251,7 @@ def main() -> None:
                     int(k),
                     max_iter=CG_MAX_ITER,
                     p_iter=CG_PRINT_INTERVAL,
-                    eigen_mode=eigen_mode,
+                    eigen_mode="eigs",
                 )
         except Exception as exc:
             st.exception(exc)

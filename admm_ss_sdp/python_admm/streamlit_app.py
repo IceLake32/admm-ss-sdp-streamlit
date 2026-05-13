@@ -150,11 +150,11 @@ def main() -> None:
             1. Upload your Clustering data with accepted formats.
             2. Choose a solver and click **Run**. The app sets up and solves an optimization
                problem in the background.
-            3. Receive a certificate of stability for your clustering, with a guaranteed `epsilon` value:
+            3. Receive a certificate of stability for your clustering, with a guaranteed `epsilon` value and threshold `p_min` for stability:
 
             For example:
 
-            - **Guaranteed `epsilon = 0.04`**  
+            - **Guaranteed `(epsilon = 0.04`, `p_min = 0.18)`**  
               The clustering has a deterministic stability guarantee.
 
             - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
@@ -162,6 +162,8 @@ def main() -> None:
 
             `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
             confidence interval; it is a deterministic bound returned by the optimization certificate.
+            
+            `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
             """
         )
 
@@ -170,13 +172,8 @@ def main() -> None:
             """
             Upload a MATLAB `.mat`, NumPy `.npz`, or CSV `.csv` file containing the problem data.
 
-            For `.mat` and `.npz`, provide:
-
             - `X0`: an `n x n` clustering matrix for the clustering you want to validate.
             - `G`: an `n x n` centered Gram matrix describing the data geometry.
-
-            For `.csv`, provide one row per data point, numeric feature columns, and one cluster label
-            column named `label`. The app will construct `X0` and `G` automatically.
 
             `X0` is built from cluster labels. If points `i` and `j` are in the same cluster of size
             `m`, then `X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. Its trace equals the number of
@@ -187,6 +184,58 @@ def main() -> None:
             ```python
             Y_centered = Y - Y.mean(axis=0, keepdims=True)
             G = Y_centered @ Y_centered.T
+            ```
+
+            Small example: if we have four one-dimensional data points and this clustering:
+
+            ```text
+            data points Y = [[0], [1], [5], [6]]
+            clustering    = [1, 1, 2, 2]
+            ```
+
+            then points 1 and 2 are in one cluster, and points 3 and 4 are in another cluster. The
+            corresponding matrices are:
+
+            ```text
+            X0 =
+            [[0.5, 0.5, 0.0, 0.0],
+             [0.5, 0.5, 0.0, 0.0],
+             [0.0, 0.0, 0.5, 0.5],
+             [0.0, 0.0, 0.5, 0.5]]
+
+            G =
+            [[ 9,  6, -6, -9],
+             [ 6,  4, -4, -6],
+             [-6, -4,  4,  6],
+             [-9, -6,  6,  9]]
+            ```
+
+            For `.mat` and `.npz`, provide arrays named `X0` and `G`.
+
+            Example `.mat` from MATLAB:
+
+            ```matlab
+            save("problem.mat", "X0", "G")
+            ```
+
+            Example `.npz` from Python:
+
+            ```python
+            import numpy as np
+            np.savez("problem.npz", X0=X0, G=G)
+            ```
+
+            For `.csv`, provide one row per data point, numeric feature columns, and one cluster label
+            column named `label`. The app will construct `X0` and `G` automatically.
+
+            Example `.csv`:
+
+            ```csv
+            x1,x2,label
+            0.1,0.2,1
+            0.2,0.1,1
+            5.0,4.8,2
+            5.2,5.1,2
             ```
 
             The app checks that `X0` and `G` are square, finite numeric matrices with the same shape,

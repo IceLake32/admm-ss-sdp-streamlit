@@ -286,12 +286,10 @@ def main() -> None:
     render_stability_gauge(objective_minus_k)
 
     st.markdown("#### Key Numbers")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Solver Backend", f"{result.solver} / SDP")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Objective - K", f"{objective_minus_k:.8g}")
     col2.metric("K", f"{k}")
-    col3.metric("Objective - K", f"{objective_minus_k:.8g}")
-    col4.metric("Runtime", f"{result.elapsed:.2f} s")
-    st.metric("Confidence Level", verdict["confidence"])
+    col3.metric("Runtime", f"{result.elapsed:.2f} s")
 
     st.markdown(
         """
@@ -300,37 +298,26 @@ def main() -> None:
         """
     )
 
-    with st.expander("How to read this result"):
+    with st.expander("What does this mean?"):
         st.markdown(
             """
-            `Objective - K` is the primary ADMM stability readout for this demo.
+            The solver tries to find an alternative clustering that has equal-or-better k-means quality
+            and is as different from the uploaded clustering as possible.
 
-            - Near `0`: the solver could not move far from your clustering while preserving
-              equal-or-better k-means quality. This supports stronger structural stability.
-            - Moderately negative: the solver found somewhat different alternatives. This is a
-              moderate certificate.
-            - Very negative: the solver found substantially different alternatives. The uploaded
-              clustering may not be unique.
+            `Objective - K` is the primary ADMM stability readout for this demo:
+
+            - Near `0`: stronger stability evidence.
+            - More negative: a more replaceable clustering structure.
 
             Heuristic UI bands, not theorem thresholds:
 
-            - `Objective - K > -0.05`: Strongly stable
-            - `-0.05 >= Objective - K > -0.30`: Moderately stable
-            - `Objective - K <= -0.30`: Weak / ambiguous
-            """
-        )
-        st.markdown(
-            """
-            The solver searches for an alternative clustering that:
+            - `> -0.05`: strong stability evidence
+            - `-0.30` to `-0.05`: moderate stability evidence
+            - `<= -0.30`: weak or ambiguous evidence
 
-            1. Matches or improves your uploaded clustering's k-means quality.
-            2. Is as structurally different as possible.
-
-            If the search fails to move far away, your clustering is harder to replace. If it succeeds,
-            your clustering may be one of several plausible explanations for the same data.
-
-            Suggested next check: try nearby values of `K`, compare different clustering initializations,
-            or inspect boundary and outlier points.
+            Weak evidence does not prove the clustering is wrong. It means this convex stress test did
+            not certify stability in this run. The gauge is a visual aid, not a theorem score or
+            probability.
             """
         )
 
@@ -345,14 +332,6 @@ def main() -> None:
         else:
             st.markdown(f"- `maximum_iterations`: `{CG_MAX_ITER}`")
         st.caption("These diagnostics are for optimization validity, not the primary user verdict.")
-
-    st.warning(
-        "Important: Weak or No Guarantee does not prove the clustering is incorrect. "
-        "It means this convex stress-test found limited evidence for uniqueness or robustness. "
-        "This tool is a verifier, not a ground-truth oracle."
-    )
-
-    st.markdown("### Are your clusters real, or just one convenient partition?")
 
     st.download_button(
         "Download Full Solver Diagnostics (.mat)",

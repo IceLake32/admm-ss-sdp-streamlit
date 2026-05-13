@@ -135,21 +135,23 @@ def main() -> None:
     with st.expander("How it works", expanded=True):
         st.markdown(
             """
-            1. Upload your data and a clustering `C`.
-            2. Click **Run Sublevel Set (SS) algorithm**. The app sets up and solves an optimization
+            1. Upload your Clustering data with accepted formats.
+            2. Click **Run**. The app sets up and solves an optimization
                problem in the background.
-            3. Read the answer:
+            3. Get the answer. The app returns one of two forms:
 
-               - `Guaranteed epsilon`: your clustering has a deterministic stability guarantee.
-               - `Not guaranteed`: the run did not certify stability. This does not prove the
-                 clustering is wrong.
+               - **Guaranteed `epsilon = 0.04`**  
+                 The clustering has a deterministic stability guarantee.
+
+               - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
+                 The run did not certify stability. This does not prove the clustering is wrong.
 
             `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
             confidence interval; it is a deterministic bound returned by the optimization certificate.
             """
         )
 
-    with st.expander("Accepted data formats", expanded=True):
+    with st.expander("Data formats", expanded=True):
         st.markdown(
             """
             Upload a MATLAB `.mat`, NumPy `.npz`, or CSV `.csv` file containing the problem data.

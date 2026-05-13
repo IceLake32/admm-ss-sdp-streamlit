@@ -224,8 +224,8 @@ def main() -> None:
     st.markdown(
         "\n".join(
             [
-                f"- `n`: `{n}`",
                 f"- Clusters `K = trace(X0)`: `{k}`",
+                f"- `n`: `{n}`",
                 f"- `X0 shape`: `{x0.shape}`",
                 f"- `G shape`: `{g.shape}`",
             ]
@@ -272,15 +272,15 @@ def main() -> None:
         }
 
     st.subheader("Uploaded Clustering Stress-Test Result")
-    st.markdown(
-        f"""
-        <div style="border-left: 0.5rem solid {verdict['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
-            <h3 style="margin-top: 0;">{verdict['status']}</h3>
-            <p style="font-size: 1.05rem; margin-bottom: 0;">{verdict['bottom_line']}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # st.markdown(
+    #     f"""
+    #     <div style="border-left: 0.5rem solid {verdict['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
+    #         <h3 style="margin-top: 0;">{verdict['status']}</h3>
+    #         <p style="font-size: 1.05rem; margin-bottom: 0;">{verdict['bottom_line']}</p>
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True,
+    # )
 
     st.markdown("#### Stability Evidence Gauge")
     render_stability_gauge(objective_minus_k)
@@ -291,12 +291,12 @@ def main() -> None:
     col2.metric("K", f"{k}")
     col3.metric("Runtime", f"{result.elapsed:.2f} s")
 
-    st.markdown(
-        """
-        Closer to `0` means stronger stability evidence; more negative means the uploaded clustering
-        is easier to replace. The gauge is a visual aid, not a theorem score or probability.
-        """
-    )
+    # st.markdown(
+    #     """
+    #     Closer to `0` means stronger stability evidence; more negative means the uploaded clustering
+    #     is easier to replace. The gauge is a visual aid, not a theorem score or probability.
+    #     """
+    # )
 
     with st.expander("What does this mean?"):
         st.markdown(

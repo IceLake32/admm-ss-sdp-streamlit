@@ -1,71 +1,62 @@
-# Python Solver Demo
+# Python SDP Clustering Solvers
 
-This folder contains the Python translation and Streamlit demo for the
-sublevel-set SDP clustering solvers.
+This folder contains Python implementations and a Streamlit interface for the
+sublevel-set SDP clustering validation method from Meila (2018). The app does
+not run k-means from scratch. It takes an existing clustering and checks whether
+there is another equal-or-better clustering candidate that is very different
+from it.
 
-## Files
+## Main Files
 
-- `admm_solver.py`: Python implementation of the ADMM solver path from
-  `proj_psd_largescale.m`, `dual_admm3c_test.m`, and `dual_admm3c.m`.
-- `cg_solver.py`: Python implementation of the conditional-gradient solver path
-  from `cg_ss_test.m` and `cg_ss.m`.
-- `solver_api.py`: Small API layer used by the Streamlit app. It loads `.mat`
-  files, validates `X0` and `G`, runs solvers, computes metrics, and exports
-  result `.mat` files.
-- `streamlit_app.py`: Upload-and-run web demo.
-- `validate_admm.py`: Validates Python ADMM against the saved Matlab benchmark.
-- `validate_cg.py`: Runs Python CG and compares summary metrics against Matlab.
-- `debug_cg_short.py`: Short CG eigensolver diagnostic.
+- `admm_solver.py`: ADMM implementation for the sublevel-set SDP. This is the
+  main validated solver path and is intended for smaller dense problems.
+- `cg_solver.py`: Conditional-gradient implementation for a larger-scale SDP
+  formulation. This version is runnable but experimental because Python
+  iterative eigensolver behavior can differ from Matlab.
+- `solver_api.py`: API layer used by the app. It loads `.mat` files, validates
+  inputs, runs ADMM or CG, computes summary metrics, and exports results.
+- `streamlit_app.py`: Streamlit web interface for uploading data, running a
+  solver, and reading the validation result.
+- `validate_admm.py`: Compares the Python ADMM implementation against the saved
+  Matlab benchmark.
+- `validate_cg.py`: Compares Python CG summary metrics against Matlab output.
+- `debug_cg_short.py`: Small diagnostic script for CG eigensolver behavior.
 
-## Solver Status
+## Input `.mat` Format
 
-- ADMM: validated against Matlab on `X0_200.mat`; results match to numerical
-  precision.
-- CG: translated and runnable, but marked experimental because iterative
-  eigensolver choices diverge from Matlab after the first few iterations.
+The Streamlit app expects a MATLAB `.mat` file containing:
 
-## Local Run
+- `X0`: an `n x n` clustering matrix for the clustering being validated.
+- `G`: an `n x n` centered Gram matrix with the same shape as `X0`.
 
-From the repository root:
+For `X0`, if points `i` and `j` are in the same cluster of size `m`, then
+`X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. The number of clusters is inferred
+from `trace(X0)`.
 
-```powershell
-D:/Anaconda/python.exe -m streamlit run admm_ss_sdp/python_admm/streamlit_app.py --global.developmentMode false --browser.gatherUsageStats false
+For `G`, if the raw data matrix is `Y` with one point per row:
+
+```python
+Y_centered = Y - Y.mean(axis=0, keepdims=True)
+G = Y_centered @ Y_centered.T
 ```
 
-Then open:
+## Streamlit App
 
-```text
-http://localhost:8501
-```
-
-Upload a `.mat` file containing variables:
-
-- `X0`
-- `G`
-
-For the included sample, use:
-
-```text
-admm_ss_sdp/X0_200.mat
-```
-
-## Streamlit Community Cloud
-
-1. Push the repository to GitHub.
-2. In Streamlit Community Cloud, create a new app.
-3. Select the GitHub repo and branch.
-4. Set the main file path to:
+Use `streamlit_app.py` as the Streamlit Community Cloud entry point:
 
 ```text
 admm_ss_sdp/python_admm/streamlit_app.py
 ```
 
-5. Keep `requirements.txt` at the repository root.
+The app workflow is:
 
-The root `requirements.txt` is intentionally small:
+1. Upload a `.mat` file containing `X0` and `G`.
+2. Select `ADMM` or `CG`.
+3. Click `Run Solver`.
+4. Read the objective, `Objective - K`, runtime, and matrix diagnostics.
+5. Download the result `.mat` file if needed.
 
-```text
-streamlit
-numpy<2
-scipy
-```
+For ADMM, `Objective - K` is `<X0, X> - K`. Values near `0` mean the solver did
+not find a very different equal-or-better candidate, which supports clustering
+stability. More negative values mean the SDP found a less similar candidate, so
+the uploaded clustering is less strongly certified.

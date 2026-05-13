@@ -156,8 +156,8 @@ def main() -> None:
     with st.expander("Methodology overview"):
         st.markdown(
             """
-            The method is based on Meila (2018), **"How to tell when a clustering is
-            (approximately) correct using convex relaxations."**
+            The method is based on Meila (2018),
+            **["How to tell when a clustering is (approximately) correct using convex relaxations"](https://papers.nips.cc/paper/7970-how-to-tell-when-a-clustering-is-approximately-correct-using-convex-relaxations)**.
 
             The workflow is:
 

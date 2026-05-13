@@ -41,10 +41,6 @@ def main() -> None:
         **"How to tell when a clustering is (approximately) correct using convex relaxations."**
         It is a validation tool for an existing clustering, not a tool that runs k-means from scratch.
 
-        The main question is: **among all clusterings that fit the data at least as well as the uploaded
-        clustering, can any of them be very different?** If the answer is no, the uploaded clustering has
-        a stronger stability certificate. If the answer is yes, the data may support multiple different
-        clusterings with comparable k-means quality.
         """
     )
     with st.expander("Methodology overview", expanded=True):
@@ -62,9 +58,6 @@ def main() -> None:
                to `X0`. This is the adversarial check: the solver is trying to find a credible alternative
                clustering that still fits the data well.
 
-            The important interpretation is qualitative: if even this adversarial search stays close to
-            `X0`, then the uploaded clustering is stable under the SDP relaxation. If the solver finds a
-            far-away candidate, the uploaded clustering is harder to certify.
             """
         )
 

@@ -6,7 +6,7 @@ from io import BytesIO
 
 import streamlit as st
 
-from solver_api import infer_cluster_count, load_problem, result_to_mat_bytes, run_admm, run_cg
+from solver_api import load_problem, result_to_mat_bytes, run_admm, run_cg
 
 
 st.set_page_config(page_title="ADMM SS SDP Solver", layout="wide")
@@ -15,6 +15,20 @@ ADMM_EPS = 1e-4
 ADMM_PRINT_INTERVAL = 100
 CG_MAX_ITER = 500
 CG_PRINT_INTERVAL = 50
+
+
+def infer_cluster_count(x0, tol: float = 1e-6) -> int:
+    """Infer K from a clustering matrix using trace(X0) = K."""
+    trace_x0 = float(x0.trace())
+    k = int(round(trace_x0))
+    if k < 2:
+        raise ValueError(f"`trace(X0)` must identify at least 2 clusters. Got {trace_x0:.12g}.")
+    if abs(trace_x0 - k) > tol:
+        raise ValueError(
+            "`trace(X0)` should be an integer equal to the number of clusters. "
+            f"Got trace(X0) = {trace_x0:.12g}."
+        )
+    return k
 
 
 def main() -> None:

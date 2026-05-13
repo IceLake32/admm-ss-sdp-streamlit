@@ -6,28 +6,87 @@ from io import BytesIO
 
 import streamlit as st
 
-from solver_api import load_problem, result_to_mat_bytes, run_admm, run_cg
+from solver_api import infer_cluster_count, load_problem, result_to_mat_bytes, run_admm, run_cg
 
 
 st.set_page_config(page_title="ADMM SS SDP Solver", layout="wide")
 
+ADMM_EPS = 1e-4
+ADMM_PRINT_INTERVAL = 100
+CG_MAX_ITER = 500
+CG_PRINT_INTERVAL = 50
+
 
 def main() -> None:
     st.title("Sublevel-Set SDP Clustering Solver")
+    st.markdown(
+        """
+        This app implements the sublevel-set SDP idea from Meila (2018),
+        **"How to tell when a clustering is (approximately) correct using convex relaxations."**
+        It does not run k-means from scratch. Instead, it takes an existing clustering and checks whether
+        another clustering with equal-or-better k-means quality can be very different from it.
+
+        If the solver cannot find a very different equal-or-better candidate, the uploaded clustering is
+        more stable. If it can, the clustering may not be uniquely supported by the data.
+        """
+    )
+    with st.expander("What problem is this solver checking?", expanded=True):
+        st.markdown(
+            """
+            The uploaded clustering is represented by a matrix `X0`. The solver searches over relaxed
+            clustering matrices `X` and solves:
+
+            ```text
+            minimize    <X0, X>
+
+            subject to  trace(X) = K
+                        X 1 = 1
+                        X >= 0
+                        X is positive semidefinite
+                        <G, X> >= <G, X0>
+            ```
+
+            The constraint `<G, X> >= <G, X0>` means that the candidate `X` must be at least as good as
+            `X0` under the k-means/Gram-matrix score. The objective `<X0, X>` tries to make `X` as
+            different from `X0` as possible. This is a "stress test" for the uploaded clustering.
+            """
+        )
+
+    with st.expander("Required `.mat` format", expanded=True):
+        st.markdown(
+            """
+            Upload a MATLAB `.mat` file containing exactly the problem data variables:
+
+            - `X0`: an `n x n` clustering matrix for the clustering you want to validate.
+            - `G`: an `n x n` centered Gram matrix describing the data geometry.
+
+            `X0` is built from cluster labels. If points `i` and `j` are in the same cluster of size
+            `m`, then `X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. Its trace equals the number of
+            clusters, so this app infers `K` from `trace(X0)`.
+
+            `G` is computed from the centered data matrix. If the raw data matrix is `Y` with one point
+            per row, first subtract the column-wise mean:
+
+            ```python
+            Y_centered = Y - Y.mean(axis=0, keepdims=True)
+            G = Y_centered @ Y_centered.T
+            ```
+
+            The app checks that `X0` and `G` are square, finite numeric matrices with the same shape,
+            and that `trace(X0)` is an integer cluster count.
+            """
+        )
 
     with st.sidebar:
         uploaded_file = st.file_uploader("Upload MATLAB data", type=["mat"])
         solver = st.selectbox("Solver", ["ADMM", "CG"])
-        k = st.number_input("Number of clusters", min_value=2, max_value=100, value=4, step=1)
 
         if solver == "ADMM":
-            eps = st.selectbox("Tolerance", [1e-3, 1e-4, 1e-5], index=1, format_func=lambda x: f"{x:g}")
-            p_iter = st.number_input("Print interval", min_value=1, max_value=1000, value=100, step=10)
+            st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             n_limit = st.number_input("Maximum n", min_value=50, max_value=1000, value=500, step=50)
         else:
             st.caption("CG is experimental in Python because iterative eigensolvers can diverge from Matlab.")
-            max_iter = st.number_input("Maximum iterations", min_value=10, max_value=5000, value=500, step=50)
-            p_iter = st.number_input("Print interval", min_value=1, max_value=1000, value=50, step=10)
+            st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
             n_limit = st.number_input("Maximum n", min_value=50, max_value=2000, value=1000, step=50)
 
@@ -39,7 +98,9 @@ def main() -> None:
 
     try:
         x0, g = load_problem(BytesIO(uploaded_file.getvalue()))
+        k = infer_cluster_count(x0)
     except Exception as exc:
+        st.error("Invalid `.mat` file format.")
         st.error(str(exc))
         return
 
@@ -49,6 +110,7 @@ def main() -> None:
         "\n".join(
             [
                 f"- `n`: `{n}`",
+                f"- inferred `K = trace(X0)`: `{k}`",
                 f"- `X0 shape`: `{x0.shape}`",
                 f"- `G shape`: `{g.shape}`",
             ]
@@ -65,14 +127,14 @@ def main() -> None:
     with st.spinner(f"Running {solver} solver..."):
         try:
             if solver == "ADMM":
-                result = run_admm(x0, g, int(k), eps=float(eps), p_iter=int(p_iter))
+                result = run_admm(x0, g, int(k), eps=ADMM_EPS, p_iter=ADMM_PRINT_INTERVAL)
             else:
                 result = run_cg(
                     x0,
                     g,
                     int(k),
-                    max_iter=int(max_iter),
-                    p_iter=int(p_iter),
+                    max_iter=CG_MAX_ITER,
+                    p_iter=CG_PRINT_INTERVAL,
                     eigen_mode=eigen_mode,
                 )
         except Exception as exc:
@@ -80,16 +142,41 @@ def main() -> None:
             return
 
     st.subheader("Result")
+    objective_minus_k = result.objective - k
     col1, col2, col3 = st.columns(3)
     col1.metric("Solver", result.solver)
     col2.metric("Objective", f"{result.objective:.8g}")
     col3.metric("Runtime", f"{result.elapsed:.2f} s")
+    st.metric("Objective - K", f"{objective_minus_k:.8g}")
 
     st.markdown(
         "\n".join(
             f"- `{key}`: `{value:.12g}`" for key, value in result.metrics.items()
         )
     )
+
+    st.subheader("Result Meaning")
+    meaning_lines = [
+        f"- `K`: inferred from `trace(X0)`, here `K = {k}`.",
+        "- `Objective`: solver objective value. For ADMM this is `<X0, X>`, the overlap between the uploaded clustering and the returned candidate.",
+        "- `Objective - K`: for ADMM this is `<X0, X> - K`. Values near `0` mean the solver could not move far away from the uploaded clustering while keeping equal-or-better k-means quality. More negative values mean it found a more different candidate, so the uploaded clustering is less strongly certified.",
+        "- `Runtime`: wall-clock time spent inside the selected solver.",
+        "- `min_X` or `min_P`: minimum entry of the returned matrix; values slightly below zero can be numerical tolerance error.",
+        "- `trace_X` or `trace_P`: trace of the returned matrix; for ADMM, `trace_X` should be close to `K`.",
+        "- `trace_GX` or `trace_GP`: data-fit score of the returned matrix.",
+        "- `trace_GX0`: data-fit score of the uploaded clustering matrix `X0`; ADMM targets `trace_GX >= trace_GX0`.",
+        "- `trace_X0X` or `trace_X0P`: overlap between `X0` and the returned matrix; for ADMM this is the same quantity as the objective.",
+    ]
+    if result.solver == "ADMM":
+        meaning_lines.extend(
+            [
+                f"- `Tolerance`: fixed at `{ADMM_EPS:g}` for ADMM in this demo.",
+                "- `v`: ADMM multiplier for the sublevel constraint `trace(G X) >= trace(G X0)`.",
+            ]
+        )
+    else:
+        meaning_lines.append(f"- `Maximum iterations`: fixed at `{CG_MAX_ITER}` for CG in this demo.")
+    st.markdown("\n".join(meaning_lines))
 
     st.download_button(
         "Download result .mat",

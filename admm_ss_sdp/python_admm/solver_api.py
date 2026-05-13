@@ -39,6 +39,20 @@ def load_problem(file: str | Path | BinaryIO) -> tuple[np.ndarray, np.ndarray]:
     return x0, g
 
 
+def infer_cluster_count(x0: np.ndarray, tol: float = 1e-6) -> int:
+    """Infer K from a clustering matrix using trace(X0) = K."""
+    trace_x0 = float(np.trace(x0))
+    k = int(round(trace_x0))
+    if k < 2:
+        raise ValueError(f"`trace(X0)` must identify at least 2 clusters. Got {trace_x0:.12g}.")
+    if abs(trace_x0 - k) > tol:
+        raise ValueError(
+            "`trace(X0)` should be an integer equal to the number of clusters. "
+            f"Got trace(X0) = {trace_x0:.12g}."
+        )
+    return k
+
+
 def run_admm(
     x0: np.ndarray,
     g: np.ndarray,
@@ -129,4 +143,3 @@ def _matrix_metrics(name: str, x0: np.ndarray, g: np.ndarray, matrix: np.ndarray
         "trace_GX0": float(np.trace(g @ x0)),
         f"trace_X0{name}": float(np.trace(x0 @ matrix)),
     }
-

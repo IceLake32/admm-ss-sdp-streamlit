@@ -66,6 +66,53 @@ def stability_verdict(objective_minus_k: float) -> dict[str, str]:
     }
 
 
+def stability_score(objective_minus_k: float) -> float:
+    """Map Objective - K to a 0-100 display score for the gauge."""
+    clipped = min(max(objective_minus_k, -0.60), 0.0)
+    return 100.0 * (1.0 + clipped / 0.60)
+
+
+def render_stability_gauge(objective_minus_k: float) -> None:
+    """Render a compact gauge for the UI-only stability heuristic."""
+    score = stability_score(objective_minus_k)
+    marker_left = max(1.0, min(score, 99.0))
+    st.markdown(
+        f"""
+        <div style="margin: 0.75rem 0 1.25rem 0;">
+            <div style="
+                position: relative;
+                height: 1.1rem;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #d9534f 0%, #d9534f 50%, #f0ad4e 50%, #f0ad4e 91.67%, #2e7d32 91.67%, #2e7d32 100%);
+                box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+            ">
+                <div style="
+                    position: absolute;
+                    left: {marker_left:.2f}%;
+                    top: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 1.35rem;
+                    height: 1.35rem;
+                    border-radius: 999px;
+                    background: #111;
+                    border: 3px solid white;
+                    box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+                "></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.86rem;">
+                <span>Weak / Ambiguous</span>
+                <span>Moderately Stable</span>
+                <span>Strongly Stable</span>
+            </div>
+            <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
+                Display score: {score:.0f}/100. Based on Objective - K = {objective_minus_k:.6g}.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def main() -> None:
     st.title("Sublevel-Set SDP Clustering Solver")
     st.markdown(
@@ -240,7 +287,10 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    st.subheader("Primary Metrics")
+    st.markdown("#### Stability Score Gauge")
+    render_stability_gauge(objective_minus_k)
+
+    st.markdown("#### Key Numbers")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Solver Backend", f"{result.solver} / SDP")
     col2.metric("K", f"{k}")
@@ -248,7 +298,14 @@ def main() -> None:
     col4.metric("Runtime", f"{result.elapsed:.2f} s")
     st.metric("Confidence Level", verdict["confidence"])
 
-    with st.expander("How to read Objective - K", expanded=True):
+    st.markdown(
+        """
+        `Objective - K` near `0` supports stability: the solver could not find a very different
+        equal-or-better clustering. More negative values indicate a more replaceable cluster structure.
+        """
+    )
+
+    with st.expander("How to read this result"):
         st.markdown(
             """
             `Objective - K` is the primary ADMM stability readout for this demo.
@@ -267,43 +324,18 @@ def main() -> None:
             - `Objective - K <= -0.30`: Weak / ambiguous
             """
         )
-
-    st.subheader("Plain English Interpretation")
-    st.markdown(
-        """
-        This solver searches for an alternative clustering that:
-
-        1. Matches or improves your uploaded clustering's k-means quality.
-        2. Is as structurally different as possible.
-
-        If the search fails to move far away, your clustering is harder to replace. If it succeeds,
-        your clustering may be one of several plausible explanations for the same data.
-        """
-    )
-
-    st.subheader("Recommended Next Steps")
-    if verdict["status"] == "Certified Stable":
         st.markdown(
             """
-            - Try nearby values of `K`.
-            - Test sensitivity to outliers.
-            - Compare ADMM with the experimental CG backend on larger examples.
-            """
-        )
-    elif verdict["status"] == "Moderately Stable":
-        st.markdown(
-            """
-            - Inspect boundary or ambiguous points.
-            - Test multiple values of `K`.
-            - Compare results from different clustering initializations.
-            """
-        )
-    else:
-        st.markdown(
-            """
-            - Check for overlap, outliers, or weak separation.
-            - Revisit the chosen number of clusters `K`.
-            - Consider whether the data truly has a strong cluster structure.
+            The solver searches for an alternative clustering that:
+
+            1. Matches or improves your uploaded clustering's k-means quality.
+            2. Is as structurally different as possible.
+
+            If the search fails to move far away, your clustering is harder to replace. If it succeeds,
+            your clustering may be one of several plausible explanations for the same data.
+
+            Suggested next check: try nearby values of `K`, compare different clustering initializations,
+            or inspect boundary and outlier points.
             """
         )
 

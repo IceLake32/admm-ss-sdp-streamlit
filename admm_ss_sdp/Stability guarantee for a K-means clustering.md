@@ -4,7 +4,7 @@
 
 This software verifies if your clustering $C$ is approximately correct. 
 
-The software is based on this paper and the original code written by Gang Cheng.
+The software is based on [this paper](https://sites.stat.washington.edu/mmp/Papers/sdp-kmeans-nips18.pdf) and the [original code](https://github.com/mathcg/admm_ss_sdp/) written by Gang Cheng.
 
 ## How it works
 

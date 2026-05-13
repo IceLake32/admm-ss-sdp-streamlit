@@ -117,10 +117,10 @@ def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
                     box-shadow: 0 1px 6px rgba(0,0,0,0.25);
                 "></div>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.86rem;">
-                <span>epsilon = 0</span>
-                <span style="margin-left: -6rem;">p_min threshold</span>
-                <span>4 x p_min</span>
+            <div style="position: relative; height: 1.35rem; margin-top: 0.45rem; font-size: 0.86rem;">
+                <span style="position: absolute; left: 0; transform: translateX(0);">epsilon = 0</span>
+                <span style="position: absolute; left: {threshold_left:.2f}%; transform: translateX(-50%); white-space: nowrap;">p_min threshold</span>
+                <span style="position: absolute; right: 0; transform: translateX(0);">4 x p_min</span>
             </div>
             <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
                 Smaller epsilon is better. The formal guarantee requires epsilon <= p_min.{overflow_note}
@@ -151,14 +151,14 @@ def main() -> None:
             2. Choose a solver and click **Run**. The app sets up and solves an optimization
                problem in the background.
             3. Receive a certificate of stability for your clustering, with a guaranteed `epsilon` value:
-                
-                For example:
-                
-                    - **Guaranteed `epsilon = 0.04`**  
-                     The clustering has a deterministic stability guarantee.
 
-                    - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
-                     The run did not certify stability. This does not prove the clustering is wrong.
+            For example:
+
+            - **Guaranteed `epsilon = 0.04`**  
+              The clustering has a deterministic stability guarantee.
+
+            - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
+              The run did not certify stability. This does not prove the clustering is wrong.
 
             `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
             confidence interval; it is a deterministic bound returned by the optimization certificate.

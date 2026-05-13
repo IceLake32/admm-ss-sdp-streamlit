@@ -24,10 +24,26 @@ from it.
 
 ## Input File Format
 
-The Streamlit app accepts MATLAB `.mat` files or NumPy `.npz` files containing:
+The Streamlit app accepts MATLAB `.mat`, NumPy `.npz`, and CSV `.csv` files.
+
+For `.mat` and `.npz`, include:
 
 - `X0`: an `n x n` clustering matrix for the clustering being validated.
 - `G`: an `n x n` centered Gram matrix with the same shape as `X0`.
+
+For `.csv`, include one row per data point, numeric feature columns, and one
+cluster label column named `label`. The app constructs `X0` and `G`
+automatically.
+
+Example CSV:
+
+```csv
+x1,x2,label
+0.1,0.2,1
+0.2,0.1,1
+5.0,4.8,2
+5.2,5.1,2
+```
 
 For `X0`, if points `i` and `j` are in the same cluster of size `m`, then
 `X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. The number of clusters is inferred

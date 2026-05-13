@@ -87,13 +87,18 @@ def main() -> None:
             """
         )
 
-    with st.expander("Required `.mat` format", expanded=True):
+    with st.expander("Required data format", expanded=True):
         st.markdown(
             """
-            Upload either a MATLAB `.mat` file or a NumPy `.npz` file containing the problem data:
+            Upload a MATLAB `.mat`, NumPy `.npz`, or CSV `.csv` file containing the problem data.
+
+            For `.mat` and `.npz`, provide:
 
             - `X0`: an `n x n` clustering matrix for the clustering you want to validate.
             - `G`: an `n x n` centered Gram matrix describing the data geometry.
+
+            For `.csv`, provide one row per data point, numeric feature columns, and one cluster label
+            column named `label`. The app will construct `X0` and `G` automatically.
 
             `X0` is built from cluster labels. If points `i` and `j` are in the same cluster of size
             `m`, then `X0[i, j] = 1 / m`; otherwise `X0[i, j] = 0`. Its trace equals the number of
@@ -113,7 +118,7 @@ def main() -> None:
         )
 
     with st.sidebar:
-        uploaded_file = st.file_uploader("Upload problem data", type=["mat", "npz"])
+        uploaded_file = st.file_uploader("Upload problem data", type=["mat", "npz", "csv"])
         solver = st.selectbox("Solver", ["ADMM", "CG"])
 
         if solver == "ADMM":
@@ -128,7 +133,7 @@ def main() -> None:
         run_clicked = st.button("Run Solver", type="primary", use_container_width=True)
 
     if uploaded_file is None:
-        st.info("Upload a `.mat` or `.npz` file containing variables `X0` and `G`.")
+        st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
         return
 
     try:

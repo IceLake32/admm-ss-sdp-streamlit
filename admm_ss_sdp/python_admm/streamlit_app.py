@@ -253,7 +253,7 @@ def main() -> None:
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
-            st.caption("CG uses the `eigs` eigen solver.")
+            # st.caption("CG uses the `eigs` eigen solver.")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
 

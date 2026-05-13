@@ -39,13 +39,35 @@ def main() -> None:
         """
         This app implements the sublevel-set SDP idea from Meila (2018),
         **"How to tell when a clustering is (approximately) correct using convex relaxations."**
-        It does not run k-means from scratch. Instead, it takes an existing clustering and checks whether
-        another clustering with equal-or-better k-means quality can be very different from it.
+        It is a validation tool for an existing clustering, not a tool that runs k-means from scratch.
 
-        If the solver cannot find a very different equal-or-better candidate, the uploaded clustering is
-        more stable. If it can, the clustering may not be uniquely supported by the data.
+        The main question is: **among all clusterings that fit the data at least as well as the uploaded
+        clustering, can any of them be very different?** If the answer is no, the uploaded clustering has
+        a stronger stability certificate. If the answer is yes, the data may support multiple different
+        clusterings with comparable k-means quality.
         """
     )
+    with st.expander("Methodology overview", expanded=True):
+        st.markdown(
+            """
+            The workflow has four steps:
+
+            1. Start with a clustering you already have, usually produced by k-means or another clustering
+               method. This clustering is encoded as `X0`.
+            2. Convert the original data geometry into the centered Gram matrix `G`. The value `<G, X>`
+               is the SDP form of the k-means data-fit score for a clustering matrix `X`.
+            3. Define the sublevel set: all candidate clusterings whose k-means quality is at least as good
+               as the uploaded clustering. In this app that condition is written as `<G, X> >= <G, X0>`.
+            4. Solve a semidefinite program that searches inside that set for the candidate least similar
+               to `X0`. This is the adversarial check: the solver is trying to find a credible alternative
+               clustering that still fits the data well.
+
+            The important interpretation is qualitative: if even this adversarial search stays close to
+            `X0`, then the uploaded clustering is stable under the SDP relaxation. If the solver finds a
+            far-away candidate, the uploaded clustering is harder to certify.
+            """
+        )
+
     with st.expander("What problem is this solver checking?", expanded=True):
         st.markdown(
             """
@@ -65,6 +87,10 @@ def main() -> None:
             The constraint `<G, X> >= <G, X0>` means that the candidate `X` must be at least as good as
             `X0` under the k-means/Gram-matrix score. The objective `<X0, X>` tries to make `X` as
             different from `X0` as possible. This is a "stress test" for the uploaded clustering.
+
+            Exact clustering is combinatorial, so the app uses an SDP relaxation: it searches over a
+            larger convex set of matrix candidates. A strong certificate from this relaxed problem is
+            meaningful because the relaxed search is allowed to be more flexible than real hard clusterings.
             """
         )
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 
+import numpy as np
 import streamlit as st
 
 from solver_api import load_problem, result_to_mat_bytes, run_admm, run_cg
@@ -33,49 +34,54 @@ def infer_cluster_count(x0, tol: float = 1e-6) -> int:
     return k
 
 
-def stability_verdict(objective_minus_k: float) -> dict[str, str]:
-    """Return UI-only stability labels from the ADMM primary metric."""
-    if objective_minus_k > -0.05:
+def cluster_proportions(x0) -> tuple[float, float]:
+    """Infer p_min and p_max from a clustering matrix."""
+    diagonal = np.asarray(np.diag(x0), dtype=float)
+    if np.any(diagonal <= 0):
+        raise ValueError("X0 diagonal entries must be positive to infer cluster sizes.")
+    point_cluster_sizes = np.rint(1.0 / diagonal).astype(int)
+    if np.any(point_cluster_sizes <= 0):
+        raise ValueError("Could not infer valid cluster sizes from X0.")
+    n = x0.shape[0]
+    return float(np.min(point_cluster_sizes) / n), float(np.max(point_cluster_sizes) / n)
+
+
+def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str | bool]:
+    """Compute the epsilon certificate quantities used in the SS guarantee."""
+    p_min, p_max = cluster_proportions(x0)
+    epsilon = max(float(k - objective), 0.0) * p_max
+    guaranteed = epsilon <= p_min + 1e-10
+    if guaranteed:
         return {
-            "status": "Stable in this SDP Run",
-            "confidence": "High",
+            "status": "Guaranteed",
             "color": "green",
+            "epsilon": epsilon,
+            "p_min": p_min,
+            "p_max": p_max,
             "bottom_line": (
-                "This SDP run did not find a substantially different equal-or-better candidate. "
-                "Your uploaded clustering has strong stability evidence."
+                "Every equal-or-better clustering is certified to be epsilon-close to the uploaded "
+                "clustering, under this SDP run."
             ),
-        }
-    if objective_minus_k > -0.30:
-        return {
-            "status": "Moderately Stable",
-            "confidence": "Moderate",
-            "color": "orange",
-            "bottom_line": (
-                "The solver found somewhat different alternatives, but not drastically different ones. "
-                "Your clustering appears reasonably credible, though not uniquely certified."
-            ),
+            "guaranteed": True,
         }
     return {
-        "status": "Weak / Potentially Ambiguous",
-        "confidence": "Low",
-        "color": "red",
+        "status": "Not Guaranteed",
+        "color": "orange",
+        "epsilon": epsilon,
+        "p_min": p_min,
+        "p_max": p_max,
         "bottom_line": (
-            "The solver found meaningfully different alternatives with similar quality. "
-            "Multiple plausible cluster structures may exist."
+            "This run did not certify stability. This does not prove the clustering is wrong; it means "
+            "the guarantee condition was not met."
         ),
+        "guaranteed": False,
     }
 
 
-def stability_score(objective_minus_k: float) -> float:
-    """Map Objective - K to a 0-100 display score for the gauge."""
-    clipped = min(max(objective_minus_k, -0.60), 0.0)
-    return 100.0 * (1.0 + clipped / 0.60)
-
-
-def render_stability_gauge(objective_minus_k: float) -> None:
-    """Render a compact gauge for the UI-only stability heuristic."""
-    score = stability_score(objective_minus_k)
-    marker_left = max(1.0, min(score, 99.0))
+def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
+    """Render a compact gauge for epsilon relative to p_min."""
+    ratio = 0.0 if p_min <= 0 else epsilon / p_min
+    marker_left = max(1.0, min(100.0 * ratio / 2.0, 99.0))
     st.markdown(
         f"""
         <div style="margin: 0.75rem 0 1.25rem 0;">
@@ -83,7 +89,7 @@ def render_stability_gauge(objective_minus_k: float) -> None:
                 position: relative;
                 height: 1.1rem;
                 border-radius: 999px;
-                background: linear-gradient(90deg, #d9534f 0%, #d9534f 50%, #f0ad4e 50%, #f0ad4e 91.67%, #2e7d32 91.67%, #2e7d32 100%);
+                background: linear-gradient(90deg, #2e7d32 0%, #2e7d32 50%, #f0ad4e 50%, #f0ad4e 100%);
                 box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
             ">
                 <div style="
@@ -100,12 +106,12 @@ def render_stability_gauge(objective_minus_k: float) -> None:
                 "></div>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.86rem;">
-                <span>Weak / Ambiguous</span>
-                <span>Moderately Stable</span>
-                <span>Strongly Stable</span>
+                <span>epsilon = 0</span>
+                <span>guarantee threshold p_min</span>
+                <span>2 x p_min</span>
             </div>
             <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
-                Visual index: {score:.0f}/100. Derived from Objective - K = {objective_minus_k:.6g}.
+                Smaller epsilon is better. The formal guarantee requires epsilon <= p_min.
             </div>
         </div>
         """,
@@ -118,8 +124,8 @@ def main() -> None:
     st.caption("A sublevel-set SDP stress test for uploaded clustering results.")
     st.markdown(
         """
-        This app asks whether another clustering can fit the data just as well while being
-        structurally different from the clustering you uploaded.
+        This app verifies whether an uploaded k-means clustering is approximately correct. It asks
+        whether another clustering can fit the data just as well while being structurally different.
 
         """
     )
@@ -166,8 +172,9 @@ def main() -> None:
             3. Search the sublevel set: candidates with k-means quality at least as good as `X0`.
             4. Look for the candidate least similar to `X0`.
 
-            If this stress test cannot move far away from `X0`, the uploaded clustering has stronger
-            stability evidence. This is a verifier, not a ground-truth oracle.
+            If the result is guaranteed, the app returns an Optimality Interval `epsilon`: any clustering
+            with k-means cost no worse than the uploaded clustering must be `epsilon`-close to it. This
+            is a deterministic guarantee, not a statistical confidence interval.
             """
         )
 
@@ -259,69 +266,78 @@ def main() -> None:
 
     objective_minus_k = result.objective - k
     if result.solver == "ADMM":
-        verdict = stability_verdict(objective_minus_k)
+        certificate = stability_certificate(result.objective, x0, int(k))
     else:
-        verdict = {
+        p_min, p_max = cluster_proportions(x0)
+        certificate = {
             "status": "No Guarantee",
-            "confidence": "Low",
             "color": "gray",
+            "epsilon": float(result.objective),
+            "p_min": p_min,
+            "p_max": p_max,
             "bottom_line": (
                 "This CG run is experimental in the Python demo. Treat the result as a diagnostic, "
                 "not as the primary stability certificate."
             ),
+            "guaranteed": False,
         }
 
     st.subheader("Uploaded Clustering Stress-Test Result")
-    # st.markdown(
-    #     f"""
-    #     <div style="border-left: 0.5rem solid {verdict['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
-    #         <h3 style="margin-top: 0;">{verdict['status']}</h3>
-    #         <p style="font-size: 1.05rem; margin-bottom: 0;">{verdict['bottom_line']}</p>
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True,
-    # )
+    st.markdown(
+        f"""
+        <div style="border-left: 0.5rem solid {certificate['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
+            <h3 style="margin-top: 0;">{certificate['status']}</h3>
+            <p style="font-size: 1.05rem; margin-bottom: 0;">{certificate['bottom_line']}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("#### Stability Evidence Gauge")
-    render_stability_gauge(objective_minus_k)
+    st.markdown("#### Optimality Interval Gauge")
+    render_epsilon_gauge(float(certificate["epsilon"]), float(certificate["p_min"]))
 
     st.markdown("#### Key Numbers")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Objective - K", f"{objective_minus_k:.8g}")
-    col2.metric("K", f"{k}")
+    col1.metric("epsilon", f"{float(certificate['epsilon']):.8g}")
+    col2.metric("p_min", f"{float(certificate['p_min']):.8g}")
     col3.metric("Runtime", f"{result.elapsed:.2f} s")
 
-    # st.markdown(
-    #     """
-    #     Closer to `0` means stronger stability evidence; more negative means the uploaded clustering
-    #     is easier to replace. The gauge is a visual aid, not a theorem score or probability.
-    #     """
-    # )
+    st.markdown(
+        """
+        Smaller `epsilon` is better. The clustering is guaranteed when `epsilon <= p_min`.
+        """
+    )
 
     with st.expander("What does this mean?"):
         st.markdown(
-            """
-            The solver tries to find an alternative clustering that has equal-or-better k-means quality
-            and is as different from the uploaded clustering as possible.
+            f"""
+            The solver searches for an alternative clustering that has equal-or-better k-means cost and
+            is as different from the uploaded clustering as possible.
 
-            `Objective - K` is the primary ADMM stability readout for this demo:
+            `epsilon` is the Optimality Interval: if the run is guaranteed, any equal-or-better
+            clustering must be `epsilon`-close to the uploaded clustering. In practical terms, with
+            `n = {n}`, this corresponds to at most about `{float(certificate['epsilon']) * n:.3g}`
+            data points changing cluster assignment.
 
-            - Near `0`: stronger stability evidence.
-            - More negative: a more replaceable clustering structure.
+            `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
+            `epsilon <= p_min`.
 
-            Heuristic UI bands, not theorem thresholds:
-
-            - `> -0.05`: strong stability evidence
-            - `-0.30` to `-0.05`: moderate stability evidence
-            - `<= -0.30`: weak or ambiguous evidence
-
-            Weak evidence does not prove the clustering is wrong. It means this convex stress test did
-            not certify stability in this run. The gauge is a visual aid, not a theorem score or
-            probability.
+            If the result is not guaranteed, this does not prove the clustering is wrong. It means this
+            convex stress test did not certify stability in this run. A small `epsilon` can still be
+            useful as a heuristic stability signal.
             """
         )
 
     with st.expander("Advanced Solver Diagnostics"):
+        st.markdown(
+            "\n".join(
+                [
+                    f"- `K`: `{k}`",
+                    f"- `Objective - K`: `{objective_minus_k:.12g}`",
+                    f"- `p_max`: `{float(certificate['p_max']):.12g}`",
+                ]
+            )
+        )
         st.markdown(
             "\n".join(
                 f"- `{key}`: `{value:.12g}`" for key, value in result.metrics.items()

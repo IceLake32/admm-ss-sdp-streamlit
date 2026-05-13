@@ -81,17 +81,29 @@ def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str
 def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
     """Render a compact gauge for epsilon relative to p_min."""
     ratio = 0.0 if p_min <= 0 else epsilon / p_min
-    marker_left = max(1.0, min(100.0 * ratio / 2.0, 99.0))
+    marker_left = max(1.0, min(100.0 * ratio / 4.0, 99.0))
+    threshold_left = 25.0
+    marker_color = "#2e7d32" if epsilon <= p_min else "#d9822b"
+    overflow_note = " Epsilon exceeds the displayed 4 x p_min range." if ratio > 4 else ""
     st.markdown(
         f"""
         <div style="margin: 0.75rem 0 1.25rem 0;">
             <div style="
                 position: relative;
-                height: 1.1rem;
+                height: 1.25rem;
                 border-radius: 999px;
-                background: linear-gradient(90deg, #2e7d32 0%, #2e7d32 50%, #f0ad4e 50%, #f0ad4e 100%);
+                background: linear-gradient(90deg, #2e7d32 0%, #69a85f 25%, #f0c75e 55%, #d9822b 100%);
                 box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
             ">
+                <div style="
+                    position: absolute;
+                    left: {threshold_left:.2f}%;
+                    top: -0.35rem;
+                    height: 1.95rem;
+                    width: 2px;
+                    background: #222;
+                    opacity: 0.8;
+                "></div>
                 <div style="
                     position: absolute;
                     left: {marker_left:.2f}%;
@@ -100,18 +112,18 @@ def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
                     width: 1.35rem;
                     height: 1.35rem;
                     border-radius: 999px;
-                    background: #111;
+                    background: {marker_color};
                     border: 3px solid white;
                     box-shadow: 0 1px 6px rgba(0,0,0,0.25);
                 "></div>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.86rem;">
                 <span>epsilon = 0</span>
-                <span>guarantee threshold p_min</span>
-                <span>2 x p_min</span>
+                <span style="margin-left: -6rem;">p_min threshold</span>
+                <span>4 x p_min</span>
             </div>
             <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
-                Smaller epsilon is better. The formal guarantee requires epsilon <= p_min.
+                Smaller epsilon is better. The formal guarantee requires epsilon <= p_min.{overflow_note}
             </div>
         </div>
         """,
@@ -136,15 +148,17 @@ def main() -> None:
         st.markdown(
             """
             1. Upload your Clustering data with accepted formats.
-            2. Click **Run**. The app sets up and solves an optimization
+            2. Choose a solver and click **Run**. The app sets up and solves an optimization
                problem in the background.
-            3. Get the answer. The app returns one of two forms:
+            3. Receive a certificate of stability for your clustering, with a guaranteed `epsilon` value:
+                
+                For example:
+                
+                    - **Guaranteed `epsilon = 0.04`**  
+                     The clustering has a deterministic stability guarantee.
 
-               - **Guaranteed `epsilon = 0.04`**  
-                 The clustering has a deterministic stability guarantee.
-
-               - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
-                 The run did not certify stability. This does not prove the clustering is wrong.
+                    - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
+                     The run did not certify stability. This does not prove the clustering is wrong.
 
             `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
             confidence interval; it is a deterministic bound returned by the optimization certificate.
@@ -210,7 +224,7 @@ def main() -> None:
             """
         )
 
-    with st.expander("Technical optimization problem"):
+    with st.expander("Optimization problem formulation", expanded=True):
         st.markdown(
             """
             The solver searches over relaxed clustering matrices `X` and solves:
@@ -239,12 +253,11 @@ def main() -> None:
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
-            st.caption("CG is experimental in this Python demo.")
+            st.caption("CG uses the `eigs` eigen solver.")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
-            # eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
 
-        run_clicked = st.button("Run Sublevel Set (SS) algorithm", type="primary", use_container_width=True)
+        run_clicked = st.button("Run", type="primary", use_container_width=True)
 
     if uploaded_file is None:
         st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
@@ -297,24 +310,9 @@ def main() -> None:
             return
 
     objective_minus_k = result.objective - k
-    if result.solver == "ADMM":
-        certificate = stability_certificate(result.objective, x0, int(k))
-    else:
-        p_min, p_max = cluster_proportions(x0)
-        certificate = {
-                "status": "Not guaranteed",
-            "color": "gray",
-            "epsilon": float(result.objective),
-            "p_min": p_min,
-            "p_max": p_max,
-            "bottom_line": (
-                "This CG run is experimental in the Python demo. Treat the result as a diagnostic, "
-                "not as the primary stability certificate."
-            ),
-            "guaranteed": False,
-        }
+    certificate = stability_certificate(result.objective, x0, int(k))
 
-    st.subheader("Get the answer")
+    st.subheader("Result:")
     st.markdown(
         f"""
         <div style="border-left: 0.5rem solid {certificate['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">

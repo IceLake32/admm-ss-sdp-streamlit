@@ -10,7 +10,7 @@ import streamlit as st
 from solver_api import load_problem, result_to_mat_bytes, run_admm, run_cg
 
 
-st.set_page_config(page_title="ADMM SS SDP Solver", layout="wide")
+st.set_page_config(page_title="K-means Stability Guarantee", layout="wide")
 
 ADMM_EPS = 1e-4
 ADMM_PRINT_INTERVAL = 100
@@ -65,7 +65,7 @@ def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str
             "guaranteed": True,
         }
     return {
-        "status": "Not Guaranteed",
+        "status": "Not guaranteed",
         "color": "orange",
         "epsilon": epsilon,
         "p_min": p_min,
@@ -120,17 +120,36 @@ def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
 
 
 def main() -> None:
-    st.title("Clustering Stability Verifier")
-    st.caption("A sublevel-set SDP stress test for uploaded clustering results.")
+    st.title("Stability Guarantee for a K-means Clustering")
+    st.caption("Sublevel Set (SS) verification for an uploaded clustering.")
     st.markdown(
         """
-        This app verifies whether an uploaded k-means clustering is approximately correct. It asks
-        whether another clustering can fit the data just as well while being structurally different.
+        This software verifies whether your clustering `C` is approximately correct. It is based on
+        Meila (2018),
+        **["How to tell when a clustering is (approximately) correct using convex relaxations"](https://sites.stat.washington.edu/mmp/Papers/sdp-kmeans-nips18.pdf)**,
+        and the original [ADMM SS SDP code](https://github.com/mathcg/admm_ss_sdp/) by Gang Cheng.
 
         """
     )
 
-    with st.expander("Required data format", expanded=True):
+    with st.expander("How it works", expanded=True):
+        st.markdown(
+            """
+            1. Upload your data and a clustering `C`.
+            2. Click **Run Sublevel Set (SS) algorithm**. The app sets up and solves an optimization
+               problem in the background.
+            3. Read the answer:
+
+               - `Guaranteed epsilon`: your clustering has a deterministic stability guarantee.
+               - `Not guaranteed`: the run did not certify stability. This does not prove the
+                 clustering is wrong.
+
+            `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
+            confidence interval; it is a deterministic bound returned by the optimization certificate.
+            """
+        )
+
+    with st.expander("Accepted data formats", expanded=True):
         st.markdown(
             """
             Upload a MATLAB `.mat`, NumPy `.npz`, or CSV `.csv` file containing the problem data.
@@ -159,26 +178,33 @@ def main() -> None:
             """
         )
 
-    with st.expander("Methodology overview"):
+    with st.expander("What does epsilon actually mean?"):
         st.markdown(
             """
-            The method is based on Meila (2018),
-            **["How to tell when a clustering is (approximately) correct using convex relaxations"](https://papers.nips.cc/paper/7970-how-to-tell-when-a-clustering-is-approximately-correct-using-convex-relaxations)**.
+            A clustering is evaluated by its k-means cost:
 
-            The workflow is:
+            ```text
+            Cost(C) = sum over clusters sum over points in that cluster ||x_i - mu_k||^2
+            ```
 
-            1. Start with an existing clustering, encoded as `X0`.
-            2. Encode the data geometry as the centered Gram matrix `G`.
-            3. Search the sublevel set: candidates with k-means quality at least as good as `X0`.
-            4. Look for the candidate least similar to `X0`.
+            The useful question is not only whether another clustering `C'` can have
+            `Cost(C') <= Cost(C)`. A single reassigned point can change the cost only slightly.
 
-            If the result is guaranteed, the app returns an Optimality Interval `epsilon`: any clustering
-            with k-means cost no worse than the uploaded clustering must be `epsilon`-close to it. This
-            is a deterministic guarantee, not a statistical confidence interval.
+            The better question is:
+
+            ```text
+            Can there be another clustering C', very different from C,
+            with Cost(C') <= Cost(C)?
+            ```
+
+            The SS algorithm answers this through a convex relaxation. When it returns a guaranteed
+            `epsilon`, then any clustering `C'` with cost no worse than `C` must be `epsilon`-close to
+            `C`. Here closeness is measured by the fraction of data points that would need to change
+            cluster assignment.
             """
         )
 
-    with st.expander("Optimization problem"):
+    with st.expander("Technical optimization problem"):
         st.markdown(
             """
             The solver searches over relaxed clustering matrices `X` and solves:
@@ -207,12 +233,12 @@ def main() -> None:
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
-            st.caption("CG")
+            st.caption("CG is experimental in this Python demo.")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
             # eigen_mode = st.selectbox("Eigen solver", ["eigsh", "eigs"])
 
-        run_clicked = st.button("Run Solver", type="primary", use_container_width=True)
+        run_clicked = st.button("Run Sublevel Set (SS) algorithm", type="primary", use_container_width=True)
 
     if uploaded_file is None:
         st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
@@ -270,7 +296,7 @@ def main() -> None:
     else:
         p_min, p_max = cluster_proportions(x0)
         certificate = {
-            "status": "No Guarantee",
+                "status": "Not guaranteed",
             "color": "gray",
             "epsilon": float(result.objective),
             "p_min": p_min,
@@ -282,11 +308,11 @@ def main() -> None:
             "guaranteed": False,
         }
 
-    st.subheader("Uploaded Clustering Stress-Test Result")
+    st.subheader("Get the answer")
     st.markdown(
         f"""
         <div style="border-left: 0.5rem solid {certificate['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
-            <h3 style="margin-top: 0;">{certificate['status']}</h3>
+            <h3 style="margin-top: 0;">{certificate['status']} epsilon = {float(certificate['epsilon']):.8g}</h3>
             <p style="font-size: 1.05rem; margin-bottom: 0;">{certificate['bottom_line']}</p>
         </div>
         """,
@@ -308,27 +334,41 @@ def main() -> None:
         """
     )
 
-    with st.expander("What does this mean?"):
+    with st.expander("How to interpret this answer", expanded=True):
         st.markdown(
             f"""
-            The solver searches for an alternative clustering that has equal-or-better k-means cost and
-            is as different from the uploaded clustering as possible.
+            `epsilon` is the Optimality Interval. The smaller it is, the better.
 
-            `epsilon` is the Optimality Interval: if the run is guaranteed, any equal-or-better
-            clustering must be `epsilon`-close to the uploaded clustering. In practical terms, with
-            `n = {n}`, this corresponds to at most about `{float(certificate['epsilon']) * n:.3g}`
-            data points changing cluster assignment.
+            If the answer is **Guaranteed**, then any clustering `C'` with `Cost(C') <= Cost(C)` must
+            be `epsilon`-close to the uploaded clustering `C`. For this dataset with `n = {n}`, that
+            corresponds to at most about `{float(certificate['epsilon']) * n:.3g}` data points changing
+            cluster assignment.
 
             `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
             `epsilon <= p_min`.
 
-            If the result is not guaranteed, this does not prove the clustering is wrong. It means this
-            convex stress test did not certify stability in this run. A small `epsilon` can still be
-            useful as a heuristic stability signal.
+            If the answer is **Not Guaranteed**, this can happen because the data are not strongly
+            clusterable, the uploaded clustering is only a local minimum, or the certificate is a
+            borderline case. It does not prove that the clustering is wrong. A small `epsilon` can still
+            be useful as a heuristic stability signal.
             """
         )
 
-    with st.expander("Advanced Solver Diagnostics"):
+    with st.expander("If the clustering is not guaranteed"):
+        st.markdown(
+            """
+            A few things to check:
+
+            - Is `epsilon` close to `p_min`? If `epsilon` exceeds `p_min`, a formal guarantee cannot be
+              returned, but a small `epsilon` still suggests more stability.
+            - Try nearby values of `K`; the OI can be useful heuristically for selecting the number of
+              clusters.
+            - If it makes sense for your application, remove clear outliers and try again. Outliers often
+              make the OI worse.
+            """
+        )
+
+    with st.expander("Advanced solver diagnostics"):
         st.markdown(
             "\n".join(
                 [

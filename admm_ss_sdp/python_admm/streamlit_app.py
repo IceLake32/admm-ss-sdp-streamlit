@@ -37,12 +37,12 @@ def stability_verdict(objective_minus_k: float) -> dict[str, str]:
     """Return UI-only stability labels from the ADMM primary metric."""
     if objective_minus_k > -0.05:
         return {
-            "status": "Certified Stable",
+            "status": "Stable in this SDP Run",
             "confidence": "High",
             "color": "green",
             "bottom_line": (
-                "No substantially different equally-good clustering was found. "
-                "Your uploaded clustering appears structurally robust."
+                "This SDP run did not find a substantially different equal-or-better candidate. "
+                "Your uploaded clustering has strong stability evidence."
             ),
         }
     if objective_minus_k > -0.30:
@@ -105,7 +105,7 @@ def render_stability_gauge(objective_minus_k: float) -> None:
                 <span>Strongly Stable</span>
             </div>
             <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
-                Display score: {score:.0f}/100. Based on Objective - K = {objective_minus_k:.6g}.
+                Visual index: {score:.0f}/100. Derived from Objective - K = {objective_minus_k:.6g}.
             </div>
         </div>
         """,
@@ -114,12 +114,18 @@ def render_stability_gauge(objective_minus_k: float) -> None:
 
 
 def main() -> None:
-    st.title("Sublevel-Set SDP Clustering Solver")
+    st.title("Clustering Stability Verifier")
+    st.caption("A sublevel-set SDP stress test for uploaded clustering results.")
     st.markdown(
         """
-        This app implements the sublevel-set SDP idea from Meila (2018),
-        **"How to tell when a clustering is (approximately) correct using convex relaxations."**
-        It is a validation tool for an existing clustering, not a tool that runs k-means from scratch.
+        This app asks whether your uploaded clustering is easy to replace.
+
+        It searches for an alternative clustering that has equal-or-better k-means quality but is as
+        structurally different as possible. If no such alternative is found, the uploaded clustering
+        has stronger stability evidence.
+
+        The method is based on Meila (2018), **"How to tell when a clustering is (approximately)
+        correct using convex relaxations."** This is a verifier, not a ground-truth oracle.
 
         """
     )
@@ -135,8 +141,8 @@ def main() -> None:
             3. Define the sublevel set: all candidate clusterings whose k-means quality is at least as good
                as the uploaded clustering. In this app that condition is written as `<G, X> >= <G, X0>`.
             4. Solve a semidefinite program that searches inside that set for the candidate least similar
-               to `X0`. This is the adversarial check: the solver is trying to find a credible alternative
-               clustering that still fits the data well.
+               to `X0`. This stress test tries to find a credible alternative clustering that still fits
+               the data well.
 
             """
         )
@@ -230,7 +236,7 @@ def main() -> None:
         "\n".join(
             [
                 f"- `n`: `{n}`",
-                f"- inferred `K = trace(X0)`: `{k}`",
+                f"- Clusters `K = trace(X0)`: `{k}`",
                 f"- `X0 shape`: `{x0.shape}`",
                 f"- `G shape`: `{g.shape}`",
             ]
@@ -287,7 +293,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown("#### Stability Score Gauge")
+    st.markdown("#### Stability Evidence Gauge")
     render_stability_gauge(objective_minus_k)
 
     st.markdown("#### Key Numbers")
@@ -302,6 +308,8 @@ def main() -> None:
         """
         `Objective - K` near `0` supports stability: the solver could not find a very different
         equal-or-better clustering. More negative values indicate a more replaceable cluster structure.
+
+        The gauge is a visual aid derived from `Objective - K`; it is not a theorem score or probability.
         """
     )
 

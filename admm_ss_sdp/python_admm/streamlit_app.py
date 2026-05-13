@@ -181,26 +181,30 @@ def main() -> None:
     with st.expander("What does epsilon actually mean?"):
         st.markdown(
             """
-            A clustering is evaluated by its k-means cost:
+            Remember that a clustering is evaluated by its k-means cost:
 
-            ```text
-            Cost(C) = sum over clusters sum over points in that cluster ||x_i - mu_k||^2
-            ```
+            $$
+            Cost(C)=\\sum_{k=1}^{K}\\sum_{i\\in \\text{cluster }k}\\|x_i-\\mu_k\\|^2.
+            $$
 
-            The useful question is not only whether another clustering `C'` can have
-            `Cost(C') <= Cost(C)`. A single reassigned point can change the cost only slightly.
+            **What we know:** data `D`, clustering `C`, and its `Cost(C)`.
 
-            The better question is:
+            **What we want to know, first version:** Can there be another `C'` so that
+            `Cost(C') <= Cost(C)`?
 
-            ```text
-            Can there be another clustering C', very different from C,
-            with Cost(C') <= Cost(C)?
-            ```
+            The answer, if we could know it, would not be very informative. If we reassign a single
+            point to a different cluster, the change in cost may be very small.
 
-            The SS algorithm answers this through a convex relaxation. When it returns a guaranteed
-            `epsilon`, then any clustering `C'` with cost no worse than `C` must be `epsilon`-close to
-            `C`. Here closeness is measured by the fraction of data points that would need to change
-            cluster assignment.
+            **What we want to know, better version:** Can there be another `C'`, very different from
+            `C`, so that `Cost(C') <= Cost(C)`?
+
+            This is what the SS algorithm searches for. When it returns a guaranteed `epsilon`, then
+            any clustering `C'` with `Cost(C') <= Cost(C)` must be `epsilon`-close to `C`.
+
+            `epsilon` is a difference between two clusterings, measured by the fraction of the `n`
+            data points that must change cluster assignment to turn `C'` into `C`. For example, if
+            `n = 200` and `epsilon = 0.05`, then any clustering as good as `C` or better must differ
+            from `C` in at most 10 points.
             """
         )
 

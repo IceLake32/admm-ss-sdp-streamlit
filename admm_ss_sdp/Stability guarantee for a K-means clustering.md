@@ -4,14 +4,13 @@
 
 This software verifies if your clustering $C$ is approximately correct. 
 
-The software is based on [this paper](https://sites.stat.washington.edu/mmp/Papers/sdp-kmeans-nips18.pdf) and the [original code](https://github.com/mathcg/admm_ss_sdp/) written by Gang Cheng.
+The software is based on this paper and the original code written by Gang Cheng.
 
 ## How it works
 
 1. **Enter the data Data and a clustering** $C$. [Example] [Link to format]
-2. Optionally, choose solver parameters. An optimization problem will be run in the background. If the problem times out,  you can try to change the parameters. We do not recommend this, because the chance of getting a benefit from it is little.
-3. **Click Run Sublevel Set (SS) algorithm.** An optimization problem is set up and solved.
-4. **Get the answer.**
+2. **Click Run Sublevel Set (SS) algorithm.** An optimization problem is set up and solved.
+3. **Get the answer.**
 
 ✅ Guaranteed $\varepsilon=\ldots$
 
@@ -24,6 +23,8 @@ This means that your clustering $C$ is not stable enough to obtain a guaranteed.
 - The data Data is not clusterable (which means that the clusters are not distinct enough, and another way of clustering the data may be just as good)
 - $C$ is a local minimum and some other global minimum exists.
 - Data is clusterable and $C$ is stable, but the algorithm may fail to guarantee borderline cases.
+
+`p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
 
 ### Guaranteed clusterings examples
 

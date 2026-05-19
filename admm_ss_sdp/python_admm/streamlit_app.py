@@ -319,11 +319,13 @@ def main() -> None:
     with st.expander("Download the code"):
         st.markdown(
             """
-            The source code is available on GitHub:
+            The Streamlit app source code is available on GitHub:
 
-            ```text
-            https://github.com/IceLake32/admm-ss-sdp-streamlit
-            ```
+            [admm-ss-sdp-streamlit](https://github.com/IceLake32/admm-ss-sdp-streamlit)
+
+            The original ADMM SS SDP code by Gang Cheng is also available on GitHub:
+
+            [mathcg/admm_ss_sdp](https://github.com/mathcg/admm_ss_sdp/)
 
             To download it from GitHub, click **Code** and then **Download ZIP**.
             You can also clone it with:

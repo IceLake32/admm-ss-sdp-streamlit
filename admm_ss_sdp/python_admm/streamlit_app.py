@@ -201,12 +201,6 @@ def main() -> None:
 
         **What we know:** Data $\\mathcal{D}$, clustering $\\mathcal{C}$, and its $Cost(C)$.
 
-        **What we want to know (first version):** "Can there be another $C'$ so that
-        $Cost(C') \\leq Cost(C)$?"
-
-        The answer, if we could know it, would not be very informative, because if we reassign a
-        single point to a different cluster, the change in cost will be very small.
-
         **What we want to know (better version):** "Can there be **another $C'$**, **very
         different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
 

@@ -201,7 +201,7 @@ def main() -> None:
 
         **What we know:** Data $\\mathcal{D}$, clustering $\\mathcal{C}$, and its $Cost(C)$.
 
-        **What we want to know (better version):** "Can there be **another $C'$**, **very
+        **What we want to know:** "Can there be **another $C'$**, **very
         different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
 
         This is what our **SS** algorithm finds. When it returns a Guaranteed $\\epsilon$, then

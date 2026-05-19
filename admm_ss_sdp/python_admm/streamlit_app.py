@@ -170,13 +170,15 @@ def main() -> None:
         2. **Click Run Sublevel Set (SS) algorithm.** An optimization problem is set up and solved.
         3. **Get the answer.**
 
-        ✅ Guaranteed $\\varepsilon = \\ldots$
+        <span style="display: inline-block; background: #76b852; color: white; padding: 0.45rem 1.4rem; border-radius: 0.55rem; font-weight: 700; font-size: 1.05rem;">Guaranteed</span>
+        $\\varepsilon = \\ldots$
 
         $\\varepsilon$ is the *Optimality Interval (OI)* (or *bound*, or error *margin*). The smaller,
         the better. Note that the OI is not a Confidence Interval (CI); because it is
         deterministically 100% guaranteed.
 
-        ❓ Not guaranteed ($\\varepsilon = \\ldots,\\ p_{min} = \\ldots$)
+        <span style="display: inline-block; background: #c23b22; color: white; padding: 0.45rem 1.4rem; border-radius: 0.55rem; font-weight: 700; font-size: 1.05rem;">Not guaranteed</span>
+        ($\\varepsilon = \\ldots,\\ p_{min} = \\ldots$)
 
         This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
 

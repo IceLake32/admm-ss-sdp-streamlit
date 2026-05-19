@@ -180,12 +180,12 @@ def main() -> None:
         <span style="display: inline-block; background: #c23b22; color: white; padding: 0.45rem 1.4rem; border-radius: 0.55rem; font-weight: 700; font-size: 1.05rem;">Not guaranteed</span>
         ($\\varepsilon = \\ldots,\\ p_{min} = \\ldots$)
 
-        This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
+        This means that your clustering $C$ is not stable enough to obtain a guarantee. This can be because:
 
         - The data Data is not clusterable, which means that the clusters are not distinct enough,
           and another way of clustering the data may be just as good.
-        - `C` is a local minimum and some other global minimum exists.
-        - Data is clusterable and `C` is stable, but the algorithm may fail to guarantee borderline cases.
+        - $C$ is a local minimum and some other global minimum exists.
+        - Data is clusterable and $C$ is stable, but the algorithm may fail to guarantee borderline cases.
 
         `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
         $\\varepsilon \\leq p_{min}$.

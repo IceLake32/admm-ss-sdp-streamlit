@@ -46,6 +46,25 @@ def cluster_proportions(x0) -> tuple[float, float]:
     return float(np.min(point_cluster_sizes) / n), float(np.max(point_cluster_sizes) / n)
 
 
+def problem_from_clustering(y: np.ndarray, clustering: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Build X0 and G from raw data points and a clustering assignment."""
+    _, inverse = np.unique(clustering, return_inverse=True)
+    cluster_sizes = np.bincount(inverse)
+    same_cluster = inverse[:, None] == inverse[None, :]
+    x0 = same_cluster.astype(float) / cluster_sizes[inverse][:, None]
+    centered = y - y.mean(axis=0, keepdims=True)
+    g = centered @ centered.T
+    return x0, g
+
+
+def demo_problem() -> dict[str, np.ndarray]:
+    """A tiny example with cluster sizes 2 and 3."""
+    y = np.array([[0.0], [2.0], [4.0], [6.0], [8.0]])
+    clustering = np.array([1, 1, 2, 2, 2])
+    x0, g = problem_from_clustering(y, clustering)
+    return {"Y": y, "clustering": clustering, "X0": x0, "G": g}
+
+
 def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str | bool]:
     """Compute the epsilon certificate quantities used in the SS guarantee."""
     p_min, p_max = cluster_proportions(x0)
@@ -66,7 +85,7 @@ def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str
         }
     return {
         "status": "Not guaranteed",
-        "color": "orange",
+        "color": "#c23b22",
         "epsilon": epsilon,
         "p_min": p_min,
         "p_max": p_max,
@@ -147,26 +166,34 @@ def main() -> None:
     with st.expander("How it works", expanded=True):
         st.markdown(
             """
-            1. Upload your Clustering data with accepted formats.
-            2. Choose a solver and click **Run**. The app sets up and solves an optimization
-               problem in the background.
-            3. Receive a certificate of stability for your clustering, with a guaranteed `epsilon` value and threshold `p_min` for stability:
+            1. **Enter the data Data and a clustering** `C`. See [Data formats](#data-formats) below.
+            2. **Choose a solver and click Run SS Algorithm.** An optimization problem is set up and solved.
+            3. **Get the answer.**
 
             For example:
 
-            - **Guaranteed `(epsilon = 0.04`, `p_min = 0.18)`**  
-              The clustering has a deterministic stability guarantee.
+            <span style="display: inline-block; background: #76b852; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Guaranteed</span>
+            `epsilon = 0.04`
 
-            - **Not guaranteed (`epsilon = 0.22`, `p_min = 0.18`)**  
-              The run did not certify stability. This does not prove the clustering is wrong.
+            <span style="display: inline-block; background: #c23b22; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Not guaranteed</span>
+            (`epsilon = 0.22`, `p_min = 0.18`)
 
             `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
             confidence interval; it is a deterministic bound returned by the optimization certificate.
             
             `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
-            """
+
+            This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
+
+            - The data Data is not clusterable, which means that the clusters are not distinct enough,
+              and another way of clustering the data may be just as good.
+            - `C` is a local minimum and some other global minimum exists.
+            - Data is clusterable and `C` is stable, but the algorithm may fail to guarantee borderline cases.
+            """,
+            unsafe_allow_html=True,
         )
 
+    st.markdown('<a id="data-formats"></a>', unsafe_allow_html=True)
     with st.expander("Data formats", expanded=True):
         st.markdown(
             """
@@ -186,28 +213,30 @@ def main() -> None:
             G = Y_centered @ Y_centered.T
             ```
 
-            Small example: if we have four one-dimensional data points and this clustering:
+            Small example: if we have five one-dimensional data points and this clustering:
 
             ```text
-            data points Y = [[0], [1], [5], [6]]
-            clustering    = [1, 1, 2, 2]
+            data points Y = [[0], [2], [4], [6], [8]]
+            clustering    = [1, 1, 2, 2, 2]
             ```
 
-            then points 1 and 2 are in one cluster, and points 3 and 4 are in another cluster. The
+            then points 1 and 2 are in one cluster, and points 3, 4, and 5 are in another cluster. The
             corresponding matrices are:
 
             ```text
             X0 =
-            [[0.5, 0.5, 0.0, 0.0],
-             [0.5, 0.5, 0.0, 0.0],
-             [0.0, 0.0, 0.5, 0.5],
-             [0.0, 0.0, 0.5, 0.5]]
+            [[0.5, 0.5, 0.0,   0.0,   0.0  ],
+             [0.5, 0.5, 0.0,   0.0,   0.0  ],
+             [0.0, 0.0, 0.333, 0.333, 0.333],
+             [0.0, 0.0, 0.333, 0.333, 0.333],
+             [0.0, 0.0, 0.333, 0.333, 0.333]]
 
             G =
-            [[ 9,  6, -6, -9],
-             [ 6,  4, -4, -6],
-             [-6, -4,  4,  6],
-             [-9, -6,  6,  9]]
+            [[ 16,   8, 0,  -8, -16],
+             [  8,   4, 0,  -4,  -8],
+             [  0,   0, 0,   0,   0],
+             [ -8,  -4, 0,   4,   8],
+             [-16,  -8, 0,   8,  16]]
             ```
 
             For `.mat` and `.npz`, provide arrays named `X0` and `G`.
@@ -246,30 +275,29 @@ def main() -> None:
     with st.expander("What does epsilon actually mean?"):
         st.markdown(
             """
-            Remember that a clustering is evaluated by its k-means cost:
+            Remember that a clustering is evaluated by its K-means cost
+            $Cost(\\mathcal{C})=\\sum_{k=1}^K\\sum_{i\\in {\\rm cluster}\\ k}\\|x_i-\\mu_k\\|^2$.
 
-            $$
-            Cost(C)=\\sum_{k=1}^{K}\\sum_{i\\in \\text{cluster }k}\\|x_i-\\mu_k\\|^2.
-            $$
+            **What we know:** Data $\\mathcal{D}$, clustering $\\mathcal{C}$, and its $Cost(C)$.
 
-            **What we know:** data `D`, clustering `C`, and its `Cost(C)`.
-
-            **What we want to know, first version:** Can there be another `C'` so that
-            `Cost(C') <= Cost(C)`?
+            **What we want to know (first version):** "Can there be another $C'$ so that
+            $Cost(C') \\leq Cost(C)$?"
 
             The answer, if we could know it, would not be very informative. If we reassign a single
-            point to a different cluster, the change in cost may be very small.
+            point to a different cluster, the change in cost will be very small.
 
-            **What we want to know, better version:** Can there be another `C'`, very different from
-            `C`, so that `Cost(C') <= Cost(C)`?
+            **What we want to know (better version):** "Can there be **another $C'$**, **very
+            different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
 
-            This is what the SS algorithm searches for. When it returns a guaranteed `epsilon`, then
-            any clustering `C'` with `Cost(C') <= Cost(C)` must be `epsilon`-close to `C`.
+            This is what our **SS** algorithm finds. When it returns a Guaranteed $\\epsilon$, then
+            we know that any clustering $C'$ that has $Cost(C') \\leq Cost(C)$ must be
+            $\\epsilon$-close to $C$.
 
-            `epsilon` is a difference between two clusterings, measured by the fraction of the `n`
-            data points that must change cluster assignment to turn `C'` into `C`. For example, if
-            `n = 200` and `epsilon = 0.05`, then any clustering as good as `C` or better must differ
-            from `C` in at most 10 points.
+            $\\epsilon$ is a difference between two clusterings $C, C'$, measured by the *fraction of
+            the* $n$ *points* that must change cluster assignment to turn $C'$ into $C$. For example,
+            if $n=200$ points, and $\\epsilon=0.05$, it means that any clustering $C'$ that is as good
+            as $C$ or better must differ from $C$ in at most 10 points; and if
+            $\\epsilon=10^{-4}$ and $n=200$, it means that no clustering can be better than $C$.
             """
         )
 
@@ -294,31 +322,60 @@ def main() -> None:
             """
         )
 
+    with st.expander("Download the code"):
+        st.markdown(
+            """
+            The source code is available on GitHub:
+
+            ```text
+            https://github.com/IceLake32/admm-ss-sdp-streamlit
+            ```
+
+            To download it from GitHub, click **Code** and then **Download ZIP**.
+            You can also clone it with:
+
+            ```bash
+            git clone https://github.com/IceLake32/admm-ss-sdp-streamlit.git
+            ```
+            """
+        )
+
     with st.sidebar:
         uploaded_file = st.file_uploader("Upload problem data", type=["mat", "npz", "csv"])
         solver = st.selectbox("Solver", ["ADMM", "CG"])
+        st.caption("Choose a solver. Depending on the data and problem size, one solver may be faster.")
 
         if solver == "ADMM":
+            st.caption("ADMM is the default small dense SDP solver.")
             st.caption(f"Tolerance is fixed at `{ADMM_EPS:g}`.")
             st.caption(f"Demo size limit: `n <= {ADMM_N_LIMIT}`.")
         else:
-            # st.caption("CG uses the `eigs` eigen solver.")
+            st.caption("CG is a larger-scale conditional-gradient solver using `eigs`.")
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
 
-        run_clicked = st.button("Run", type="primary", use_container_width=True)
+        run_clicked = st.button("Run SS Algorithm", type="primary", use_container_width=True)
+        demo_clicked = st.button("Demo", use_container_width=True)
 
-    if uploaded_file is None:
+    demo_inputs = None
+    if demo_clicked:
+        demo_inputs = demo_problem()
+        x0 = demo_inputs["X0"]
+        g = demo_inputs["G"]
+        k = infer_cluster_count(x0)
+        run_clicked = True
+        st.info("Running the built-in demo example.")
+    elif uploaded_file is None:
         st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
         return
-
-    try:
-        x0, g = load_problem(BytesIO(uploaded_file.getvalue()), uploaded_file.name)
-        k = infer_cluster_count(x0)
-    except Exception as exc:
-        st.error("Invalid input file format.")
-        st.error(str(exc))
-        return
+    else:
+        try:
+            x0, g = load_problem(BytesIO(uploaded_file.getvalue()), uploaded_file.name)
+            k = infer_cluster_count(x0)
+        except Exception as exc:
+            st.error("Invalid input file format.")
+            st.error(str(exc))
+            return
 
     n = x0.shape[0]
     st.subheader("Input")
@@ -332,6 +389,10 @@ def main() -> None:
             ]
         )
     )
+    if demo_inputs is not None:
+        with st.expander("Demo variables"):
+            st.markdown("`Y`, `clustering`, `X0`, and `G` from the built-in demo:")
+            st.write(demo_inputs)
 
     n_limit = ADMM_N_LIMIT if solver == "ADMM" else CG_N_LIMIT
     if n > n_limit:
@@ -360,12 +421,22 @@ def main() -> None:
 
     objective_minus_k = result.objective - k
     certificate = stability_certificate(result.objective, x0, int(k))
+    result_heading = (
+        f"epsilon = {float(certificate['epsilon']):.8g}"
+        if certificate["guaranteed"]
+        else f"(epsilon = {float(certificate['epsilon']):.8g}, p_min = {float(certificate['p_min']):.8g})"
+    )
 
     st.subheader("Result:")
     st.markdown(
         f"""
         <div style="border-left: 0.5rem solid {certificate['color']}; padding: 1rem 1.25rem; background: #f8f9fa;">
-            <h3 style="margin-top: 0;">{certificate['status']} epsilon = {float(certificate['epsilon']):.8g}</h3>
+            <h3 style="margin-top: 0;">
+                <span style="display: inline-block; background: {certificate['color']}; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; margin-right: 0.5rem;">
+                    {certificate['status']}
+                </span>
+                {result_heading}
+            </h3>
             <p style="font-size: 1.05rem; margin-bottom: 0;">{certificate['bottom_line']}</p>
         </div>
         """,
@@ -444,7 +515,14 @@ def main() -> None:
 
     st.download_button(
         "Download Full Solver Diagnostics (.mat)",
-        data=result_to_mat_bytes(result),
+        data=result_to_mat_bytes(
+            result,
+            {
+                "X0": x0,
+                "G": g,
+                **({} if demo_inputs is None else {"Y": demo_inputs["Y"], "clustering": demo_inputs["clustering"]}),
+            },
+        ),
         file_name=f"{result.solver.lower()}_result.mat",
         mime="application/octet-stream",
     )

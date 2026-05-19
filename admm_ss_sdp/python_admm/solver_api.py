@@ -199,13 +199,18 @@ def run_cg(
     )
 
 
-def result_to_mat_bytes(result: SolverResult) -> bytes:
+def result_to_mat_bytes(
+    result: SolverResult,
+    extra_payload: dict[str, np.ndarray | float] | None = None,
+) -> bytes:
     """Serialize solver outputs into an in-memory .mat file."""
     payload: dict[str, np.ndarray | float] = {
         result.output_name: result.output_matrix,
         "objective": result.objective,
         "elapsed": result.elapsed,
     }
+    if extra_payload:
+        payload.update(extra_payload)
     payload.update(result.extra_outputs)
     for key, value in result.metrics.items():
         payload[f"metric_{key}"] = float(value)

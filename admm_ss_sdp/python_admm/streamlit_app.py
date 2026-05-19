@@ -163,35 +163,64 @@ def main() -> None:
         """
     )
 
-    with st.expander("How it works", expanded=True):
-        st.markdown(
-            """
-            1. **Enter the data Data and a clustering** `C`. See [Data formats](#data-formats) below.
-            2. **Choose a solver and click Run SS Algorithm.** An optimization problem is set up and solved.
-            3. **Get the answer.**
+    st.header("How it works")
+    st.markdown(
+        """
+        1. **Enter the data Data and a clustering** `C`. See [Data formats](#data-formats) below.
+        2. **Choose a solver and click Run SS Algorithm.** An optimization problem is set up and solved.
+        3. **Get the answer.**
 
-            For example:
+        For example:
 
-            <span style="display: inline-block; background: #76b852; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Guaranteed</span>
-            `epsilon = 0.04`
+        <span style="display: inline-block; background: #76b852; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Guaranteed</span>
+        `epsilon = 0.04`
 
-            <span style="display: inline-block; background: #c23b22; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Not guaranteed</span>
-            (`epsilon = 0.22`, `p_min = 0.18`)
+        <span style="display: inline-block; background: #c23b22; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Not guaranteed</span>
+        (`epsilon = 0.22`, `p_min = 0.18`)
 
-            `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
-            confidence interval; it is a deterministic bound returned by the optimization certificate.
-            
-            `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
+        `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
+        confidence interval; it is a deterministic bound returned by the optimization certificate.
 
-            This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
+        `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
 
-            - The data Data is not clusterable, which means that the clusters are not distinct enough,
-              and another way of clustering the data may be just as good.
-            - `C` is a local minimum and some other global minimum exists.
-            - Data is clusterable and `C` is stable, but the algorithm may fail to guarantee borderline cases.
-            """,
-            unsafe_allow_html=True,
-        )
+        This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
+
+        - The data Data is not clusterable, which means that the clusters are not distinct enough,
+          and another way of clustering the data may be just as good.
+        - `C` is a local minimum and some other global minimum exists.
+        - Data is clusterable and `C` is stable, but the algorithm may fail to guarantee borderline cases.
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.header("What does epsilon actually mean?")
+    st.markdown(
+        """
+        Remember that a clustering is evaluated by its K-means cost
+        $Cost(\\mathcal{C})=\\sum_{k=1}^K\\sum_{i\\in {\\rm cluster}\\ k}\\|x_i-\\mu_k\\|^2$.
+
+        **What we know:** Data $\\mathcal{D}$, clustering $\\mathcal{C}$, and its $Cost(C)$.
+
+        **What we want to know (first version):** "Can there be another $C'$ so that
+        $Cost(C') \\leq Cost(C)$?"
+
+        The answer, if we could know it, would not be very informative, because if we reassign a
+        single point to a different cluster, the change in cost will be very small.
+
+        **What we want to know (better version):** "Can there be **another $C'$**, **very
+        different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
+
+        This is what our **SS** algorithm finds. When it returns a Guaranteed $\\epsilon$, then
+        we know that any clustering $C'$ that has $Cost(C') \\leq Cost(C)$ must be
+        $\\epsilon$-close to $C$.
+
+        $\\epsilon$ is a difference between two clusterings $C, C'$, measured by the *fraction of
+        the* $n$ *points* that must change cluster assignment to turn $C'$ into $C$. For example,
+        if $n=200$ points, and $\\epsilon=0.05$, it means that any clustering $C'$ that is as good
+        as $C$ or better must differ from $C$ in at most 10 points; and if
+        $\\epsilon=10^{-4}$ and $n=200$, it means that no clustering can be better than $C$.
+        """
+    )
 
     st.markdown('<a id="data-formats"></a>', unsafe_allow_html=True)
     with st.expander("Data formats", expanded=True):
@@ -269,35 +298,6 @@ def main() -> None:
 
             The app checks that `X0` and `G` are square, finite numeric matrices with the same shape,
             and that `trace(X0)` is an integer cluster count.
-            """
-        )
-
-    with st.expander("What does epsilon actually mean?"):
-        st.markdown(
-            """
-            Remember that a clustering is evaluated by its K-means cost
-            $Cost(\\mathcal{C})=\\sum_{k=1}^K\\sum_{i\\in {\\rm cluster}\\ k}\\|x_i-\\mu_k\\|^2$.
-
-            **What we know:** Data $\\mathcal{D}$, clustering $\\mathcal{C}$, and its $Cost(C)$.
-
-            **What we want to know (first version):** "Can there be another $C'$ so that
-            $Cost(C') \\leq Cost(C)$?"
-
-            The answer, if we could know it, would not be very informative. If we reassign a single
-            point to a different cluster, the change in cost will be very small.
-
-            **What we want to know (better version):** "Can there be **another $C'$**, **very
-            different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
-
-            This is what our **SS** algorithm finds. When it returns a Guaranteed $\\epsilon$, then
-            we know that any clustering $C'$ that has $Cost(C') \\leq Cost(C)$ must be
-            $\\epsilon$-close to $C$.
-
-            $\\epsilon$ is a difference between two clusterings $C, C'$, measured by the *fraction of
-            the* $n$ *points* that must change cluster assignment to turn $C'$ into $C$. For example,
-            if $n=200$ points, and $\\epsilon=0.05$, it means that any clustering $C'$ that is as good
-            as $C$ or better must differ from $C$ in at most 10 points; and if
-            $\\epsilon=10^{-4}$ and $n=200$, it means that no clustering can be better than $C$.
             """
         )
 

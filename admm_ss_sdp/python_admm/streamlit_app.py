@@ -187,7 +187,7 @@ def main() -> None:
         - $C$ is a local minimum and some other global minimum exists.
         - Data is clusterable and $C$ is stable, but the algorithm may fail to guarantee borderline cases.
 
-        `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
+        $p_{min}$ is the smallest cluster size divided by $n$. The guarantee condition used here is
         $\\varepsilon \\leq p_{min}$.
         """,
         unsafe_allow_html=True,
@@ -451,40 +451,6 @@ def main() -> None:
         Smaller `ε` is better. The clustering is guaranteed when `ε <= p_min`.
         """
     )
-
-    with st.expander("How to interpret this answer", expanded=True):
-        st.markdown(
-            f"""
-            `ε` is the Optimality Interval. The smaller it is, the better.
-
-            If the answer is **Guaranteed**, then any clustering `C'` with `Cost(C') <= Cost(C)` must
-            be `ε`-close to the uploaded clustering `C`. For this dataset with `n = {n}`, that
-            corresponds to at most about `{float(certificate['epsilon']) * n:.3g}` data points changing
-            cluster assignment.
-
-            `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
-            `ε <= p_min`.
-
-            If the answer is **Not Guaranteed**, this can happen because the data are not strongly
-            clusterable, the uploaded clustering is only a local minimum, or the certificate is a
-            borderline case. It does not prove that the clustering is wrong. A small `ε` can still
-            be useful as a heuristic stability signal.
-            """
-        )
-
-    with st.expander("If the clustering is not guaranteed"):
-        st.markdown(
-            """
-            A few things to check:
-
-            - Is `ε` close to `p_min`? If `ε` exceeds `p_min`, a formal guarantee cannot be
-              returned, but a small `ε` still suggests more stability.
-            - Try nearby values of `K`; the OI can be useful heuristically for selecting the number of
-              clusters.
-            - If it makes sense for your application, remove clear outliers and try again. Outliers often
-              make the OI worse.
-            """
-        )
 
     with st.expander("Advanced solver diagnostics"):
         st.markdown(

@@ -78,7 +78,7 @@ def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str
             "p_min": p_min,
             "p_max": p_max,
             "bottom_line": (
-                "Every equal-or-better clustering is certified to be epsilon-close to the uploaded "
+                "Every equal-or-better clustering is certified to be ε-close to the uploaded "
                 "clustering, under this SDP run."
             ),
             "guaranteed": True,
@@ -103,7 +103,7 @@ def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
     marker_left = max(1.0, min(100.0 * ratio / 4.0, 99.0))
     threshold_left = 25.0
     marker_color = "#2e7d32" if epsilon <= p_min else "#d9822b"
-    overflow_note = " Epsilon exceeds the displayed 4 x p_min range." if ratio > 4 else ""
+    overflow_note = " ε exceeds the displayed 4 x p_min range." if ratio > 4 else ""
     st.markdown(
         f"""
         <div style="margin: 0.75rem 0 1.25rem 0;">
@@ -137,12 +137,12 @@ def render_epsilon_gauge(epsilon: float, p_min: float) -> None:
                 "></div>
             </div>
             <div style="position: relative; height: 1.35rem; margin-top: 0.45rem; font-size: 0.86rem;">
-                <span style="position: absolute; left: 0; transform: translateX(0);">epsilon = 0</span>
+                <span style="position: absolute; left: 0; transform: translateX(0);">ε = 0</span>
                 <span style="position: absolute; left: {threshold_left:.2f}%; transform: translateX(-50%); white-space: nowrap;">p_min threshold</span>
                 <span style="position: absolute; right: 0; transform: translateX(0);">4 x p_min</span>
             </div>
             <div style="margin-top: 0.35rem; color: #666; font-size: 0.84rem;">
-                Smaller epsilon is better. The formal guarantee requires epsilon <= p_min.{overflow_note}
+                Smaller ε is better. The formal guarantee requires ε <= p_min.{overflow_note}
             </div>
         </div>
         """,
@@ -166,22 +166,17 @@ def main() -> None:
     st.header("How it works")
     st.markdown(
         """
-        1. **Enter the data Data and a clustering** `C`. See [Data formats](#data-formats) below.
-        2. **Choose a solver and click Run SS Algorithm.** An optimization problem is set up and solved.
+        1. **Enter the data Data and a clustering** $C$. See [Data formats](#data-formats) below.
+        2. **Click Run Sublevel Set (SS) algorithm.** An optimization problem is set up and solved.
         3. **Get the answer.**
 
-        For example:
+        ✅ Guaranteed $\\varepsilon = \\ldots$
 
-        <span style="display: inline-block; background: #76b852; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Guaranteed</span>
-        `epsilon = 0.04`
+        $\\varepsilon$ is the *Optimality Interval (OI)* (or *bound*, or error *margin*). The smaller,
+        the better. Note that the OI is not a Confidence Interval (CI); because it is
+        deterministically 100% guaranteed.
 
-        <span style="display: inline-block; background: #c23b22; color: white; padding: 0.35rem 1rem; border-radius: 0.45rem; font-weight: 700;">Not guaranteed</span>
-        (`epsilon = 0.22`, `p_min = 0.18`)
-
-        `epsilon` is the Optimality Interval (OI). The smaller it is, the better. It is not a
-        confidence interval; it is a deterministic bound returned by the optimization certificate.
-
-        `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is `epsilon <= p_min`.
+        ❓ Not guaranteed ($\\varepsilon = \\ldots,\\ p_{min} = \\ldots$)
 
         This means that your clustering `C` is not stable enough to obtain a guarantee. This can be because:
 
@@ -189,11 +184,14 @@ def main() -> None:
           and another way of clustering the data may be just as good.
         - `C` is a local minimum and some other global minimum exists.
         - Data is clusterable and `C` is stable, but the algorithm may fail to guarantee borderline cases.
+
+        `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
+        $\\varepsilon \\leq p_{min}$.
         """,
         unsafe_allow_html=True,
     )
 
-    st.header("What does epsilon actually mean?")
+    st.header("What does ε actually mean?")
     st.markdown(
         """
         Remember that a clustering is evaluated by its K-means cost
@@ -204,15 +202,15 @@ def main() -> None:
         **What we want to know:** "Can there be **another $C'$**, **very
         different from $C$**, so that $Cost(C') \\leq Cost(C)$?"
 
-        This is what our **SS** algorithm finds. When it returns a Guaranteed $\\epsilon$, then
+        This is what our **SS** algorithm finds. When it returns a Guaranteed $\\varepsilon$, then
         we know that any clustering $C'$ that has $Cost(C') \\leq Cost(C)$ must be
-        $\\epsilon$-close to $C$.
+        $\\varepsilon$-close to $C$.
 
-        $\\epsilon$ is a difference between two clusterings $C, C'$, measured by the *fraction of
+        $\\varepsilon$ is a difference between two clusterings $C, C'$, measured by the *fraction of
         the* $n$ *points* that must change cluster assignment to turn $C'$ into $C$. For example,
-        if $n=200$ points, and $\\epsilon=0.05$, it means that any clustering $C'$ that is as good
+        if $n=200$ points, and $\\varepsilon=0.05$, it means that any clustering $C'$ that is as good
         as $C$ or better must differ from $C$ in at most 10 points; and if
-        $\\epsilon=10^{-4}$ and $n=200$, it means that no clustering can be better than $C$.
+        $\\varepsilon=10^{-4}$ and $n=200$, it means that no clustering can be better than $C$.
         """
     )
 
@@ -416,9 +414,9 @@ def main() -> None:
     objective_minus_k = result.objective - k
     certificate = stability_certificate(result.objective, x0, int(k))
     result_heading = (
-        f"epsilon = {float(certificate['epsilon']):.8g}"
+        f"ε = {float(certificate['epsilon']):.8g}"
         if certificate["guaranteed"]
-        else f"(epsilon = {float(certificate['epsilon']):.8g}, p_min = {float(certificate['p_min']):.8g})"
+        else f"(ε = {float(certificate['epsilon']):.8g}, p_min = {float(certificate['p_min']):.8g})"
     )
 
     st.subheader("Result:")
@@ -442,32 +440,32 @@ def main() -> None:
 
     st.markdown("#### Key Numbers")
     col1, col2, col3 = st.columns(3)
-    col1.metric("epsilon", f"{float(certificate['epsilon']):.8g}")
+    col1.metric("ε", f"{float(certificate['epsilon']):.8g}")
     col2.metric("p_min", f"{float(certificate['p_min']):.8g}")
     col3.metric("Runtime", f"{result.elapsed:.2f} s")
 
     st.markdown(
         """
-        Smaller `epsilon` is better. The clustering is guaranteed when `epsilon <= p_min`.
+        Smaller `ε` is better. The clustering is guaranteed when `ε <= p_min`.
         """
     )
 
     with st.expander("How to interpret this answer", expanded=True):
         st.markdown(
             f"""
-            `epsilon` is the Optimality Interval. The smaller it is, the better.
+            `ε` is the Optimality Interval. The smaller it is, the better.
 
             If the answer is **Guaranteed**, then any clustering `C'` with `Cost(C') <= Cost(C)` must
-            be `epsilon`-close to the uploaded clustering `C`. For this dataset with `n = {n}`, that
+            be `ε`-close to the uploaded clustering `C`. For this dataset with `n = {n}`, that
             corresponds to at most about `{float(certificate['epsilon']) * n:.3g}` data points changing
             cluster assignment.
 
             `p_min` is the smallest cluster size divided by `n`. The guarantee condition used here is
-            `epsilon <= p_min`.
+            `ε <= p_min`.
 
             If the answer is **Not Guaranteed**, this can happen because the data are not strongly
             clusterable, the uploaded clustering is only a local minimum, or the certificate is a
-            borderline case. It does not prove that the clustering is wrong. A small `epsilon` can still
+            borderline case. It does not prove that the clustering is wrong. A small `ε` can still
             be useful as a heuristic stability signal.
             """
         )
@@ -477,8 +475,8 @@ def main() -> None:
             """
             A few things to check:
 
-            - Is `epsilon` close to `p_min`? If `epsilon` exceeds `p_min`, a formal guarantee cannot be
-              returned, but a small `epsilon` still suggests more stability.
+            - Is `ε` close to `p_min`? If `ε` exceeds `p_min`, a formal guarantee cannot be
+              returned, but a small `ε` still suggests more stability.
             - Try nearby values of `K`; the OI can be useful heuristically for selecting the number of
               clusters.
             - If it makes sense for your application, remove clear outliers and try again. Outliers often

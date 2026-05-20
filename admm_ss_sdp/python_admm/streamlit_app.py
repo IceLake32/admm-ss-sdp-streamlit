@@ -87,8 +87,8 @@ def render_demo_image(image_path: Path) -> None:
     encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
     st.markdown(
         f"""
-        <div style="background: #202020; padding: 0.75rem; border-radius: 0.45rem; margin-bottom: 1rem;">
-            <img src="data:image/png;base64,{encoded}" style="display: block; width: 100%; height: auto;">
+        <div style="background: #202020; padding: 0.75rem; border-radius: 0.45rem; margin: 0 0 1rem 0; max-width: 34rem;">
+            <img src="data:image/png;base64,{encoded}" style="display: block; width: 100%; max-height: 22rem; object-fit: contain;">
         </div>
         """,
         unsafe_allow_html=True,

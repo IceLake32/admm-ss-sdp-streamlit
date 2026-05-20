@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 import streamlit as st
+from scipy.io import loadmat
 
 from solver_api import load_problem, result_to_mat_bytes, run_admm, run_cg
 
@@ -18,6 +21,18 @@ ADMM_N_LIMIT = 500
 CG_MAX_ITER = 500
 CG_PRINT_INTERVAL = 50
 CG_N_LIMIT = 1000
+ROOT = Path(__file__).resolve().parents[2]
+EXAMPLES_DIR = ROOT / "examples"
+DEMO_EXAMPLES = {
+    "Good clustering": {
+        "stem": "good-n13-k2",
+        "description": "Two clearly separated clusters; this should certify as Guaranteed.",
+    },
+    "Bad clustering": {
+        "stem": "bad-n13-k2",
+        "description": "Mixed labels in one cloud; this should fail the guarantee.",
+    },
+}
 
 
 def infer_cluster_count(x0, tol: float = 1e-6) -> int:
@@ -46,23 +61,38 @@ def cluster_proportions(x0) -> tuple[float, float]:
     return float(np.min(point_cluster_sizes) / n), float(np.max(point_cluster_sizes) / n)
 
 
-def problem_from_clustering(y: np.ndarray, clustering: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Build X0 and G from raw data points and a clustering assignment."""
-    _, inverse = np.unique(clustering, return_inverse=True)
-    cluster_sizes = np.bincount(inverse)
-    same_cluster = inverse[:, None] == inverse[None, :]
-    x0 = same_cluster.astype(float) / cluster_sizes[inverse][:, None]
-    centered = y - y.mean(axis=0, keepdims=True)
-    g = centered @ centered.T
-    return x0, g
+def demo_paths(demo_name: str) -> tuple[Path, Path]:
+    """Return the data and image paths for one bundled demo example."""
+    stem = DEMO_EXAMPLES[demo_name]["stem"]
+    return EXAMPLES_DIR / f"{stem}.mat", EXAMPLES_DIR / f"{stem}.png"
 
 
-def demo_problem() -> dict[str, np.ndarray]:
-    """A tiny example with cluster sizes 2 and 3."""
-    y = np.array([[0.0], [2.0], [4.0], [6.0], [8.0]])
-    clustering = np.array([1, 1, 2, 2, 2])
-    x0, g = problem_from_clustering(y, clustering)
-    return {"Y": y, "clustering": clustering, "X0": x0, "G": g}
+def load_demo_problem(demo_name: str) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+    """Load one bundled demo example from the examples directory."""
+    data_path, _ = demo_paths(demo_name)
+    x0, g = load_problem(data_path)
+    data = loadmat(data_path)
+    demo_inputs = {
+        key: np.asarray(data[key])
+        for key in ("Y", "labels", "clustering", "X0", "G")
+        if key in data
+    }
+    return x0, g, demo_inputs
+
+
+def render_demo_image(image_path: Path) -> None:
+    """Render a transparent demo image on a dark background."""
+    if not image_path.exists():
+        return
+    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    st.markdown(
+        f"""
+        <div style="background: #202020; padding: 0.75rem; border-radius: 0.45rem; margin-bottom: 1rem;">
+            <img src="data:image/png;base64,{encoded}" style="display: block; width: 100%; height: auto;">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str | bool]:
@@ -350,17 +380,24 @@ def main() -> None:
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
 
+        demo_name = st.selectbox("Demo example", list(DEMO_EXAMPLES))
+        st.caption(DEMO_EXAMPLES[demo_name]["description"])
         run_clicked = st.button("Run SS Algorithm", type="primary", use_container_width=True)
         demo_clicked = st.button("Demo", use_container_width=True)
 
     demo_inputs = None
+    demo_image_path = None
     if demo_clicked:
-        demo_inputs = demo_problem()
-        x0 = demo_inputs["X0"]
-        g = demo_inputs["G"]
-        k = infer_cluster_count(x0)
-        run_clicked = True
-        st.info("Running the built-in demo example.")
+        try:
+            x0, g, demo_inputs = load_demo_problem(demo_name)
+            _, demo_image_path = demo_paths(demo_name)
+            k = infer_cluster_count(x0)
+            run_clicked = True
+            st.info(f"Running demo: {demo_name}.")
+        except Exception as exc:
+            st.error(f"Could not load demo example `{demo_name}`.")
+            st.error(str(exc))
+            return
     elif uploaded_file is None:
         st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
         return
@@ -386,8 +423,10 @@ def main() -> None:
         )
     )
     if demo_inputs is not None:
+        if demo_image_path is not None:
+            render_demo_image(demo_image_path)
         with st.expander("Demo variables"):
-            st.markdown("`Y`, `clustering`, `X0`, and `G` from the built-in demo:")
+            st.markdown("`Y`, `clustering`, `X0`, and `G` from the selected demo:")
             st.write(demo_inputs)
 
     n_limit = ADMM_N_LIMIT if solver == "ADMM" else CG_N_LIMIT

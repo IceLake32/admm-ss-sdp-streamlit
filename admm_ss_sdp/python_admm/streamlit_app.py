@@ -380,14 +380,23 @@ def main() -> None:
             st.caption(f"Maximum iterations are fixed at `{CG_MAX_ITER}`.")
             st.caption(f"Demo size limit: `n <= {CG_N_LIMIT}`.")
 
-        demo_name = st.selectbox("Demo example", list(DEMO_EXAMPLES))
-        st.caption(DEMO_EXAMPLES[demo_name]["description"])
         run_clicked = st.button("Run SS Algorithm", type="primary", use_container_width=True)
+        st.divider()
+
         demo_clicked = st.button("Demo", use_container_width=True)
+        if demo_clicked:
+            st.session_state["show_demo_examples"] = True
+
+        demo_name = next(iter(DEMO_EXAMPLES))
+        run_demo_clicked = False
+        if st.session_state.get("show_demo_examples", False):
+            demo_name = st.selectbox("Demo example", list(DEMO_EXAMPLES), key="demo_example")
+            st.caption(DEMO_EXAMPLES[demo_name]["description"])
+            run_demo_clicked = st.button("Run Selected Demo", use_container_width=True)
 
     demo_inputs = None
     demo_image_path = None
-    if demo_clicked:
+    if run_demo_clicked:
         try:
             x0, g, demo_inputs = load_demo_problem(demo_name)
             _, demo_image_path = demo_paths(demo_name)
@@ -399,7 +408,10 @@ def main() -> None:
             st.error(str(exc))
             return
     elif uploaded_file is None:
-        st.info("Upload a `.mat`, `.npz`, or `.csv` file.")
+        if st.session_state.get("show_demo_examples", False):
+            st.info("Choose a demo example in the sidebar, then click `Run Selected Demo`.")
+        else:
+            st.info("Upload a `.mat`, `.npz`, or `.csv` file, or click `Demo` in the sidebar.")
         return
     else:
         try:

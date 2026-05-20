@@ -70,12 +70,13 @@ def save_example(stem: str, points: np.ndarray, labels: np.ndarray, title: str) 
         ax.set_xlim(x_center - half_span, x_center + half_span)
         ax.set_ylim(y_center - half_span, y_center + half_span)
 
+    marker_size = 64 if is_good_example else 92
     for label in sorted(set(labels)):
         cluster_points = points[labels == label]
         ax.scatter(
             cluster_points[:, 0],
             cluster_points[:, 1],
-            s=92,
+            s=marker_size,
             color=COLORS[int(label)],
             edgecolors="white",
             linewidths=0.7,
@@ -98,19 +99,19 @@ def main() -> None:
 
     good_points = np.array(
         [
-            [-3.30, -0.18],
-            [-3.05, 0.16],
-            [-2.82, -0.07],
-            [-3.18, 0.35],
-            [-2.92, -0.32],
-            [2.35, -0.32],
-            [2.65, 0.12],
-            [2.95, -0.08],
-            [3.25, 0.26],
-            [3.52, -0.22],
-            [2.78, 0.45],
-            [3.12, -0.48],
-            [3.45, 0.08],
+            [-3.42, -0.48],
+            [-3.38, 0.38],
+            [-2.95, -0.06],
+            [-2.52, 0.42],
+            [-2.48, -0.50],
+            [2.32, -0.42],
+            [2.45, 0.44],
+            [2.90, 0.02],
+            [3.12, 0.58],
+            [3.42, 0.24],
+            [3.48, -0.44],
+            [2.88, -0.66],
+            [3.72, -0.08],
         ],
         dtype=float,
     )

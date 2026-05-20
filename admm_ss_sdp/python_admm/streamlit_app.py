@@ -95,6 +95,22 @@ def render_demo_image(image_path: Path) -> None:
     )
 
 
+def render_example_image(image_path: Path) -> None:
+    """Render a compact example image for the introduction section."""
+    if not image_path.exists():
+        st.caption(f"Missing image: {image_path.name}")
+        return
+    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    st.markdown(
+        f"""
+        <div style="background: #202020; padding: 0.55rem; border-radius: 0.4rem; max-width: 20rem;">
+            <img src="data:image/png;base64,{encoded}" style="display: block; width: 100%; max-height: 14rem; object-fit: contain;">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def stability_certificate(objective: float, x0, k: int) -> dict[str, float | str | bool]:
     """Compute the epsilon certificate quantities used in the SS guarantee."""
     p_min, p_max = cluster_proportions(x0)
@@ -221,6 +237,57 @@ def main() -> None:
         $\\varepsilon \\leq p_{min}$.
         """,
         unsafe_allow_html=True,
+    )
+
+    st.subheader("Guaranteed clusterings examples")
+    good_data_path, good_image_path = demo_paths("Good clustering")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        render_example_image(good_image_path)
+    with col2:
+        st.markdown(
+            f"""
+            **Example A: a good clustering**
+
+            The two clusters are clearly separated, and the uploaded clustering matches the visible
+            structure of the data. This bundled example is expected to return **Guaranteed**.
+
+            To run it, click **Demo** in the sidebar, choose **Good clustering**, then click
+            **Run Selected Demo**. The uploaded data file is `{good_data_path.name}`.
+            """
+        )
+
+    st.subheader("Not guaranteed: examples")
+    bad_data_path, bad_image_path = demo_paths("Bad clustering")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        render_example_image(bad_image_path)
+    with col2:
+        st.markdown(
+            f"""
+            **Example B: a bad clustering**
+
+            The labels are mixed through one data cloud, so there can be an equal-or-better clustering
+            that is very different from the uploaded one. This bundled example is expected to return
+            **Not guaranteed**.
+
+            To run it, click **Demo** in the sidebar, choose **Bad clustering**, then click
+            **Run Selected Demo**. The uploaded data file is `{bad_data_path.name}`.
+            """
+        )
+    st.markdown(
+        """
+        A few things you can do if your clustering is not guaranteed:
+
+        - Check whether $\\varepsilon$ is close to $p_{min}$. If $\\varepsilon$ exceeds
+          $p_{min}$, the clustering cannot be guaranteed. Even so, a small $\\varepsilon$
+          can still heuristically indicate more stability.
+        - Try a different number of clusters. The value of $\\varepsilon$ can be used
+          heuristically when comparing candidate clusterings.
+        - If it makes sense for your application, remove possible outliers from your data
+          and try again. This can improve the OI and may result in a guaranteed
+          $\\varepsilon$.
+        """
     )
 
     st.header("What does ε actually mean?")
